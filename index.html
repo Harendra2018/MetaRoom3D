@@ -206,12 +206,13 @@
             <p><strong>Phone:</strong> +94 (077) 821-3383</p>
           </div>
         </div>
-        <form class="contact-form">
-          <input type="text" name="name" placeholder="Your Name" required>
-          <input type="email" name="email" placeholder="Your Email" required>
-          <textarea name="message" placeholder="Your Message" required></textarea>
-          <button type="submit" class="cta-button">Send Message</button>
-        </form>
+        <form action="https://api.web3forms.com/submit" method="POST">
+  <input type="hidden" name="access_key" value="b572fc19-3957-4602-8047-f66facb3f23e">
+  <input type="text" name="name" required>
+  <input type="email" name="email" required>
+  <textarea name="message" required></textarea>
+  <button type="submit">Submit</button>
+</form>
       </div>
     </div>
   </section>
@@ -261,6 +262,7 @@
   <script src="script.js"></script>
 </body>
 </html>
+
 
 
 
