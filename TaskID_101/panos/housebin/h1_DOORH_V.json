@@ -1,0 +1,24 @@
+{
+    "Doorh": [
+        {
+            "IDName": "Dining-Room.jpg",
+            "doorheight": 0,
+            "floorid": 0
+        },
+        {
+            "IDName": "Foyer.jpg",
+            "doorheight": 0,
+            "floorid": 0
+        },
+        {
+            "IDName": "Landing.jpg",
+            "doorheight": 0,
+            "floorid": 1
+        },
+        {
+            "IDName": "Landing-2.jpg",
+            "doorheight": 0,
+            "floorid": 1
+        }
+    ]
+}

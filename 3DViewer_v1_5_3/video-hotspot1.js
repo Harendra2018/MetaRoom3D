@@ -441,11 +441,7 @@ export class VideoHotspotManager {
       opacity: '0', transition: 'opacity .15s ease',
       font: '600 20px/1 Arial, sans-serif', color: '#fff',
       pointerEvents: 'auto',
-      // Placed entirely by transform in _updateHud(): moved to the panel's
-      // projected bottom-left corner, turned to lie along the bottom edge,
-      // then lifted by its own height so it sits just inside the panel.
-      left: '0', top: '0',
-      transformOrigin: '0 0',
+      transform: 'translateY(-100%)',   // sit on the panel's bottom edge
     });
 
     let hoverTimer = null;
@@ -513,22 +509,9 @@ export class VideoHotspotManager {
     // panel (and its player) rebuilds every time.
     let ready = false;
 
-    // The bar is rotated to follow the panel's edge, so the click is
-    // measured ALONG the bar rather than off track.getBoundingClientRect()
-    // (which, for a rotated element, is its axis-aligned bounding box, and
-    // gave the wrong time whenever the edge wasn't level). offsetLeft /
-    // offsetWidth are layout values, unaffected by the transform.
     const seekFromEvent = (e) => {
-      const f = obj.userData._hudFrame;
-      let frac;
-      if (f) {
-        const along = (e.clientX - f.x) * f.ux + (e.clientY - f.y) * f.uy;
-        frac = (along - track.offsetLeft) / Math.max(1, track.offsetWidth);
-      } else {
-        const r = track.getBoundingClientRect();
-        frac = (e.clientX - r.left) / r.width;
-      }
-      frac = Math.min(1, Math.max(0, frac));
+      const r = track.getBoundingClientRect();
+      const frac = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
       if (player && player.getDuration) player.seekTo(frac * player.getDuration(), true);
       fill.style.width = `${frac * 100}%`;
     };
@@ -719,17 +702,8 @@ export class VideoHotspotManager {
    * Move each panel's flat controls to sit on top of where that panel
    * actually projects this frame. The quad is clipped to the panel's four
    * projected corners (so it follows the perspective exactly, including
-   * yaw/tilt/roll), and the bar lies along the panel's projected bottom
-   * edge.
-   *
-   * BUGFIX (controls drifting off the video while turning the panorama):
-   * the bar used to stay LEVEL, centred on the bottom edge's midpoint. The
-   * moment the panel was off to one side, perspective tilts its bottom
-   * edge, so the level bar visibly separated from the video and seemed to
-   * rotate on its own. It is now rotated in 2D to the edge's on-screen
-   * angle. A 2D rotation of our own DOM keeps hit-testing exact -- the
-   * click problems that moved the controls out of the CSS3D layer came
-   * from the cross-origin iframe under a 3D transform, not from this.
+   * yaw/tilt/roll), while the bar stays axis-aligned along the bottom edge
+   * -- an unrotated bar is what keeps its buttons reliably clickable.
    */
   _updateHud() {
     if (!this.panels.length) return;
@@ -772,30 +746,19 @@ export class VideoHotspotManager {
       quad.style.clipPath =
         'polygon(' + pts.map(([x, y]) => `${x.toFixed(1)}px ${y.toFixed(1)}px`).join(',') + ')';
 
-      // Bar spans the bottom edge (corners 0 and 1) and sits just inside it.
-      let [blx, bly] = pts[0];
-      let [brx, bry] = pts[1];
+      // Bar spans the bottom edge (corners 0 and 1) and sits just above it.
+      const [blx, bly] = pts[0];
+      const [brx, bry] = pts[1];
       const barW = Math.hypot(brx - blx, bry - bly);
       const midX = (blx + brx) / 2;
       const midY = (bly + bry) / 2;
-      let ang = Math.atan2(bry - bly, brx - blx);
-      // The bar grows toward its local "up" (-y), which after rotate(ang)
-      // is (sin, -cos). It must point into the panel (toward the top edge);
-      // if the edge runs right-to-left on screen, start from the other end.
-      const inX = (pts[2][0] + pts[3][0]) / 2 - midX;
-      const inY = (pts[2][1] + pts[3][1]) / 2 - midY;
-      if (inX * Math.sin(ang) - inY * Math.cos(ang) < 0) {
-        [blx, bly, brx, bry] = [brx, bry, blx, bly];
-        ang = Math.atan2(bry - bly, brx - blx);
-      }
-      p.userData._hudFrame = { x: blx, y: bly, ux: Math.cos(ang), uy: Math.sin(ang) };
       // Scale the bar's type with the panel so it doesn't look oversized
       // when the video is far away or tiny when zoomed in.
       const s = Math.min(2, Math.max(0.45, barW / (halfW * 2)));
       const bar = p.userData._hudBar;
       bar.style.width = `${barW.toFixed(1)}px`;
-      bar.style.transform =
-        `translate(${blx.toFixed(1)}px, ${bly.toFixed(1)}px) rotate(${ang.toFixed(4)}rad) translateY(-100%)`;
+      bar.style.left = `${(midX - barW / 2).toFixed(1)}px`;
+      bar.style.top = `${midY.toFixed(1)}px`;
       bar.style.fontSize = `${(20 * s).toFixed(1)}px`;
       bar.style.padding = `${(8 * s).toFixed(1)}px ${(12 * s).toFixed(1)}px`;
       bar.style.gap = `${(10 * s).toFixed(1)}px`;

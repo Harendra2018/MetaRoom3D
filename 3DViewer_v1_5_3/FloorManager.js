@@ -1,6 +1,9 @@
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
 
+// One GLB that already contains every floor -- see floorsplit.js.
+import { splitIntoFloors } from './floorsplit.js';
+
 // 🔹 Import advanced line utilities
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
@@ -85,6 +88,117 @@ export class FloorManager {
     }
   }
 
+  /**
+   * The one-file path: a single GLB holding every floor, each already at
+   * its true height. Loads it once, splits the rooms into per-floor groups
+   * (floorsplit.js) and registers them, so hotspots, the dropdown, floor-plan
+   * wireframes and per-floor visibility behave exactly as they do when each
+   * floor arrived as its own file.
+   *
+   * Auto-stacking is deliberately bypassed -- the rooms are already stacked.
+   *
+   * @param {string} modelPath   the .glb
+   * @param {object} [opts]      forwarded to planFloors ({ gap })
+   */
+  async initializeFromSingleModel(modelPath, opts = {}) {
+    this.clearFloors();
+    this.totalFloors = 1;
+    this.loadedFloors = 0;
+    this.emitProgress({ loaded: 0, total: 1, percentage: 0 });
+
+    const gltf = await new Promise((resolve, reject) => {
+      this.loader.load(
+        modelPath,
+        resolve,
+        progress => {
+          if (progress.total) {
+            this.emitProgress({
+              loaded: 0, total: 1,
+              percentage: Math.round((progress.loaded / progress.total) * 95)
+            });
+          }
+        },
+        reject
+      );
+    });
+
+    const { floors, method } = splitIntoFloors(gltf.scene, THREE, opts);
+    if (!floors.length) throw new Error(`No rooms found in ${modelPath}`);
+    console.log(`Split ${modelPath} into ${floors.length} floor(s) by ${method}:`,
+      floors.map(f => `${f.name} (${f.rooms.length} rooms)`).join(', '));
+
+    this._registerPrebuiltFloors(floors.map(f => ({ key: f.name, group: f.group })), modelPath);
+    return { floors, method };
+  }
+
+  /**
+   * Floors that were built in code rather than loaded -- the housebin path
+   * (housebin.js). Each entry is { key, group }, already at its true height.
+   */
+  initializeFromPrebuilt(floors, sourceLabel = 'prebuilt') {
+    this.clearFloors();
+    this.totalFloors = floors.length;
+    this._registerPrebuiltFloors(floors, sourceLabel);
+  }
+
+  /**
+   * Shared tail of the single-GLB and housebin paths.
+   *
+   * Recentres the house on the world origin: the home/dollhouse cameras aim
+   * at (0, y, 0) and the idle spin turns each floor about its own origin, so a
+   * house whose first room sat at the origin used to swing round a corner.
+   * Each floor becomes an outer group AT the origin (what spins) holding the
+   * original group shifted by the house centre (what moves).
+   *
+   * floor.position.y is set to that floor's measured floor level. Nothing
+   * moves it -- getFloorCameraConfig() just reads it to aim the camera.
+   */
+  _registerPrebuiltFloors(floors, modelPath) {
+    const houseBox = new THREE.Box3();
+    floors.forEach(({ group }) => {
+      group.updateMatrixWorld(true);
+      houseBox.expandByObject(group);
+    });
+    const centre = houseBox.isEmpty() ? new THREE.Vector3() : houseBox.getCenter(new THREE.Vector3());
+
+    floors.forEach(({ key, group }) => {
+      const outer = new THREE.Group();
+      outer.name = key;
+      outer.userData.floorKey = key;
+      outer.userData.isFloorGroup = true;
+      group.userData.isFloorGroup = true;
+      group.position.x -= centre.x;
+      group.position.z -= centre.z;
+      outer.add(group);
+      outer.updateMatrixWorld(true);
+
+      const box = new THREE.Box3().setFromObject(outer);
+      const floorLevel = box.isEmpty() ? 0 : box.min.y;
+
+      this.floors[key] = {
+        model: outer,
+        wireframe: null,
+        hotspotNodes: [],
+        // Shown in the floor menu exactly as saved in the Qt app.
+        label: key,
+        modelPath,
+        position: { x: 0, y: floorLevel, z: 0 },
+        explicitY: true,
+        loaded: true,
+        config: { name: key, modelPath, single: true }
+      };
+      this.processFloorModel(key);
+    });
+
+    this.floorOrder = floors.map(f => f.key);
+    this.currentFloorView = this.floorOrder.length === 1 ? this.floorOrder[0] : 'all';
+    this.floorOrder.forEach(k => this.createWireframeForFloor(k));
+
+    this.loadedFloors = this.totalFloors = this.floorOrder.length;
+    this.emitProgress({ loaded: this.totalFloors, total: this.totalFloors, percentage: 100 });
+    setTimeout(() => this.onAllFloorsLoaded(), 100);
+  }
+
   loadFloor(floorKey) {
     return new Promise((resolve, reject) => {
       const floor = this.floors[floorKey];
@@ -136,6 +250,7 @@ export class FloorManager {
   isLegacyHotspotNode(child) {
     if (child.isMesh) return false;
     if (!child.name) return false;
+    if (child.userData && child.userData.isFloorGroup) return false;
 
     const lower = child.name.toLowerCase();
     if (lower === 'scene') return false;
@@ -263,9 +378,12 @@ export class FloorManager {
         const matrixWorld = child.matrixWorld;
         const segments = [];
 
-        if (geometry.index) {
-          const indices = geometry.index.array;
-          for (let i = 0; i < indices.length; i += 3) {
+        // Indexed (GLB) or not (housebin-built meshes) -- same slice either way.
+        const indices = geometry.index
+          ? geometry.index.array
+          : Array.from({ length: posAttr.count }, (_, i) => i);
+        {
+          for (let i = 0; i + 2 < indices.length; i += 3) {
             const a = new THREE.Vector3().fromBufferAttribute(posAttr, indices[i]).applyMatrix4(matrixWorld);
             const b = new THREE.Vector3().fromBufferAttribute(posAttr, indices[i + 1]).applyMatrix4(matrixWorld);
             const c = new THREE.Vector3().fromBufferAttribute(posAttr, indices[i + 2]).applyMatrix4(matrixWorld);
@@ -402,7 +520,7 @@ export class FloorManager {
       configs.orthoY = centerY + 15;
     } else if (this.floors[this.currentFloorView]) {
       const floorY = this.floors[this.currentFloorView].position.y;
-      configs.camera = { x: 8, y: floorY + 5, z: 8 };
+      configs.camera = { x: 8, y: floorY + 5, z: 8 };  // floorY = floor level
       configs.target = { x: 0, y: floorY + 1, z: 0 };
       configs.orthoY = floorY + 8;
     }
@@ -441,6 +559,10 @@ export class FloorManager {
 
 // 🔹 Example configs (now dynamic based on PANO_BASE_PATH)
 const BASE_PATH = window.PANO_BASE_PATH || "panos/";
+
+// One file holding every floor. Not a floor list, so it goes through
+// initializeFromSingleModel() rather than initializeFloors().
+export const COMBINED_MODEL_PATH = `${BASE_PATH}house.glb`;
 
 export const FloorConfigurations = {
   SINGLE_FLOOR: [

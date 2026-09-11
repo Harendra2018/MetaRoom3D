@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { HotspotManager } from './hotspots.js';
+import { HotspotManager, applyHotspotConfigFallback } from './hotspots.js';
+import { loadHousebin, firstExisting } from './housebin.js';
+import { measureFloors, roomDimensionText, WallLengthLabels } from './measurements.js';
 import { PanoramaManager } from './panorama.js';
 import { FloorManager, FloorConfigurations } from './FloorManager.js';
 import { VideoHotspotManager } from './video-hotspot.js';
@@ -31,6 +33,11 @@ class RoomViewer {
   async detectPanosForCurrentTask() {
     const urlParams = new URLSearchParams(window.location.search);
     const taskId = urlParams.get('taskId') || 'TaskID_101';
+
+    if (!this.detectedPanos[taskId] && this.derivedPanoList && this.derivedPanoList.length) {
+      // Housebin tour without a hotspot-config.js: the room list IS the pano list.
+      this.detectedPanos[taskId] = this.derivedPanoList;
+    }
 
     if (!this.detectedPanos[taskId]) {
       // Try to load from config first
@@ -234,11 +241,79 @@ class RoomViewer {
     // Pano list will be set after detection in detectPanosForCurrentTask()
   }
 
+  /**
+   * Which model a task uses. First match wins:
+   *   1. ?model=<path>            (relative to the task's panos/ folder)
+   *   2. panos/tour.json           { "model": "house.glb" }  or
+   *                                { "model": { "type": "housebin", "path": "housebin/h1.housebine",
+   *                                             "units": "auto", "cameraHeightInches": 52 } }  or
+   *                                { "model": { "type": "floors", "floors": [{ "name": "floor 1", "path": "floor1.glb" }] } }
+   *   3. panos/house.glb           one GLB, every floor inside
+   *   4. panos/housebin/h1.housebine (or ../housebin/)  a raw housebin capture
+   *   5. the per-task floor list below -- a list with ONE file goes through the
+   *      single-model path, since that file may well hold every floor.
+   */
+  async resolveModelSource(taskId, legacyConfig) {
+    const base = window.PANO_BASE_PATH || 'panos/';
+    // Absolute URLs pass through; anything else is relative to panos/.
+    const rel = p => (/^(https?:)?\/\//.test(p) || p.startsWith('/')) ? p : base + p;
+
+    const describe = (m) => {
+      if (!m) return null;
+      if (typeof m === 'string') m = { path: m };
+      const path = m.path || m.url || '';
+      const type = m.type ||
+        (/\.glb$/i.test(path) ? 'glb' : /\.housebine?$/i.test(path) || /\/$/.test(path) ? 'housebin' : null);
+      if (type === 'floors') {
+        return { type, floors: (m.floors || []).map((f, i) => ({
+          name: f.name || `floor ${i + 1}`, modelPath: rel(f.path || f.modelPath) })) };
+      }
+      return type ? { ...m, type, url: rel(path) } : null;
+    };
+
+    const params = new URLSearchParams(window.location.search);
+    let source = describe(params.get('model'));
+
+    if (!source) {
+      try {
+        const res = await fetch(`${base}tour.json`, { cache: 'no-cache' });
+        if (res.ok) source = describe((await res.json()).model);
+      } catch (e) { /* no manifest -- probe instead */ }
+    }
+
+    if (!source) {
+      const glb = await firstExisting([`${base}house.glb`]);
+      if (glb) source = { type: 'glb', url: glb };
+    }
+
+    if (!source) {
+      const house = await firstExisting([
+        `${base}housebin/h1.housebine`, `${base}housebin/h1.housebin`,
+        `${base}../housebin/h1.housebine`, `${base}../housebin/h1.housebin`
+      ]);
+      if (house) source = { type: 'housebin', url: house };
+    }
+
+    if (!source) {
+      source = legacyConfig.length === 1
+        ? { type: 'glb', url: legacyConfig[0].modelPath }
+        : { type: 'floors', floors: legacyConfig };
+    }
+
+    // A housebin path given as a folder -> its container.
+    if (source.type === 'housebin' && /\/$/.test(source.url)) {
+      source.url = await firstExisting([`${source.url}h1.housebine`, `${source.url}h1.housebin`]) ||
+                   `${source.url}h1.housebine`;
+    }
+    return source;
+  }
+
   async initFloorSystem() {
   // Initialize the floor manager
   this.floorManager = new FloorManager(this.scene);
 
-  // Map tasks/projects to floor configurations
+  // Map tasks/projects to floor configurations (used only when the task has
+  // no tour.json, house.glb or housebin -- see resolveModelSource()).
   const taskFloorMapping = {
     'TaskID_101': FloorConfigurations.TWO_FLOORS,
     'TaskID_102': FloorConfigurations.TWO_FLOORS,
@@ -251,28 +326,14 @@ class RoomViewer {
   const taskId = urlParams.get('taskId') || 'TaskID_101';
   const floorConfig = taskFloorMapping[taskId] || FloorConfigurations.SINGLE_FLOOR;
 
-  console.log('Initializing floors for task:', taskId, 'with config:', floorConfig);
-
   try {
     // Show loading indicator
     this.showLoadingIndicator();
 
     // Preload essential textures before loading floors
-    console.log('Preloading textures...');
     const textureLoader = new THREE.TextureLoader();
     const transparentTexture = await new Promise((resolve, reject) => {
-      textureLoader.load(
-        'textures/transparent.png',
-        (texture) => {
-          console.log('Transparent texture preloaded successfully');
-          resolve(texture);
-        },
-        undefined,
-        (error) => {
-          console.error('Failed to preload transparent texture:', error);
-          reject(error);
-        }
-      );
+      textureLoader.load('textures/transparent.png', resolve, undefined, reject);
     });
 
     // Set the preloaded texture in hotspot manager
@@ -284,26 +345,29 @@ class RoomViewer {
     });
 
     // Set up callback BEFORE initializing floors
-    this.floorManager.onLoaded((allRotNodes, floors) => {
+    this.floorManager.onLoaded(async (allRotNodes, floors) => {
       console.log('All floors loaded, creating hotspots...', allRotNodes.length, 'nodes found');
+
+      // Map dollhouse hotspots to panoramas only once the config is in --
+      // either hotspot-config.js, or (housebin tours without one) the config
+      // derived from h1_HOTSPOT_V.json.
+      try { await this.hotspotManager.configReady; } catch (e) { /* logged by hotspots.js */ }
+      if (this.derivedHotspotConfig) {
+        const used = applyHotspotConfigFallback(this.derivedHotspotConfig, this.panoramaManager);
+        if (used) console.log('Pano hotspots taken from h1_HOTSPOT_V.json (no hotspot-config.js in this task)');
+      }
 
       // Hide loading indicator
       this.hideLoadingIndicator();
 
-      // Debug: log node names to ensure we have the right nodes
-      allRotNodes.forEach((node, index) => {
-        console.log(`Node ${index}: ${node.name}, floor: ${node.userData.floor}`);
-      });
-
       // Create the hotspots only if not in mini mode
       if (!this.isMiniMode) {
         this.hotspotManager.createRotHotspots(allRotNodes);
+        this.buildMeasurements(floors);
       }
 
       this.updateFloorVisibility();
       this.generateFloorDropdownOptions();
-
-      console.log('Hotspot creation complete');
 
       // Now that floors are loaded, detect panos in background (don't await)
       this.detectPanosForCurrentTask();
@@ -314,8 +378,33 @@ class RoomViewer {
       }, 500);
     });
 
-    // Initialize floors with the selected configuration
-    await this.floorManager.initializeFloors(floorConfig);
+    const source = await this.resolveModelSource(taskId, floorConfig);
+    this.modelSource = source;
+    console.log('Initializing floors for task:', taskId, 'from', source);
+
+    if (source.type === 'housebin') {
+      this.loadingUnit = 'images';
+      const result = await loadHousebin({
+        houseUrl: source.url,
+        units: source.units || 'auto',
+        cameraHeightInches: source.cameraHeightInches || null,
+        applyFloorOffsetXY: source.applyFloorOffsetXY !== false,
+        onProgress: p => this.updateLoadingProgress(p)
+      });
+      result.warnings.forEach(w => console.warn('[housebin]', w));
+      console.log(`Housebin: ${result.floors.length} floor(s), ${result.rooms.length} room(s), units=${result.units}`);
+      console.table(result.rooms);
+      this.derivedHotspotConfig = result.hotspotConfig;
+      this.derivedPanoList = result.hotspotConfig
+        ? result.hotspotConfig.availablePanoramas.map(p => p.replace('panos/', ''))
+        : result.rooms.map(r => `${r.id}.jpg`);
+      this.loadingUnit = 'floors';
+      this.floorManager.initializeFromPrebuilt(result.floors, source.url);
+    } else if (source.type === 'glb') {
+      await this.floorManager.initializeFromSingleModel(source.url);
+    } else {
+      await this.floorManager.initializeFloors(source.floors);
+    }
 
   } catch (error) {
     console.error('Failed to initialize floors:', error);
@@ -323,6 +412,18 @@ class RoomViewer {
   }
 }
 
+
+/**
+ * Menu text for a floor. Floors from a single GLB or a housebin keep the
+ * name they were saved with in the Qt app, unchanged ("f1" stays "f1").
+ * The older one-GLB-per-floor setup keys floors "floor 1", "floor 2", which
+ * still get their first letter capitalised as before.
+ */
+floorDisplayName(floorKey) {
+  const floor = this.floorManager && this.floorManager.floors[floorKey];
+  if (floor && floor.label) return floor.label;
+  return floorKey.charAt(0).toUpperCase() + floorKey.slice(1);
+}
 
 // Generate floor dropdown options dynamically based on loaded floors
   generateFloorDropdownOptions() {
@@ -349,10 +450,11 @@ class RoomViewer {
       floorItem.className = 'floor-dropdown-item';
       floorItem.dataset.floor = floorKey;
       
-      // Generate floor display name (capitalize and add number)
-      const displayName = floorKey.charAt(0).toUpperCase() + floorKey.slice(1);
+      const displayName = this.floorDisplayName(floorKey);
       
-      floorItem.innerHTML = `<span class="floor-icon"></span><span>${displayName}</span>`;
+      // textContent, not innerHTML: floor names come from saved files.
+      floorItem.innerHTML = '<span class="floor-icon"></span><span></span>';
+      floorItem.lastElementChild.textContent = displayName;
       floorDropdownMenu.appendChild(floorItem);
     });
 
@@ -448,7 +550,7 @@ class RoomViewer {
     let displayIcon = '';
     
     if (currentView !== 'all') {
-      displayText = currentView.charAt(0).toUpperCase() + currentView.slice(1);
+      displayText = this.floorDisplayName(currentView);
       displayIcon = '';
     }
     
@@ -925,6 +1027,26 @@ class RoomViewer {
     animate();
   }
 
+  /**
+   * Room sizes under the room names, and wall lengths for the floor plan
+   * view. Measured once from the loaded model -- see measurements.js.
+   */
+  buildMeasurements(floors) {
+    try {
+      const measured = measureFloors(floors || this.floorManager.getFloors());
+      const text = {};
+      Object.values(measured).flat().forEach(r => { text[r.roomId] = roomDimensionText(r); });
+      this.hotspotManager.setRoomDimensions(text);
+
+      if (!this.wallLabels) this.wallLabels = new WallLengthLabels();
+      this.wallLabels.build(measured, this.floorManager.getFloors());
+      console.log('Room measurements:', Object.values(measured).flat()
+        .map(r => `${r.roomId} ${text[r.roomId]}`).join(' | '));
+    } catch (e) {
+      console.warn('Room measurements unavailable:', e);
+    }
+  }
+
   animate() {
     requestAnimationFrame(() => this.animate());
 
@@ -954,6 +1076,16 @@ class RoomViewer {
 
     this.controls.update();
     this.renderer.render(this.scene, this.activeCamera);
+
+    // Wall lengths: floor plan view only, for the floor(s) on show.
+    if (this.wallLabels) {
+      const view = this.floorManager.getCurrentFloorView();
+      this.wallLabels.update(
+        this.activeCamera,
+        this.floorPlanView && !this.isMiniMode && !this.panoramaManager.isActive(),
+        key => view === 'all' || view === key
+      );
+    }
 
     // Drawn after the WebGL pass so the panels sit over the panorama.
     if (this.videoHotspots && this.panoramaManager.isActive()) {
@@ -1042,7 +1174,7 @@ class RoomViewer {
     }
 
     if (progressText) {
-      progressText.textContent = `${progress.percentage}% (${progress.loaded}/${progress.total} floors)`;
+      progressText.textContent = `${progress.percentage}% (${progress.loaded}/${progress.total} ${this.loadingUnit || 'floors'})`;
     }
   }
 }

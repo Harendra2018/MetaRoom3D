@@ -1,0 +1,56 @@
+{
+    "Dining-Room": {
+        "hotspots": [
+            {
+                "targetRoomId": "Foyer",
+                "u": 0.7466467958271237,
+                "v": 0.5753899480069324
+            }
+        ],
+        "name": "Dining-Room",
+        "panoramaImage": "panos/Dining-Room.jpg"
+    },
+    "Foyer": {
+        "hotspots": [
+            {
+                "targetRoomId": "Dining-Room",
+                "u": 0.4098360655737705,
+                "v": 0.5493934142114385
+            },
+            {
+                "targetRoomId": "Landing",
+                "u": 0.8599105812220567,
+                "v": 0.5580589254766031
+            }
+        ],
+        "name": "Foyer",
+        "panoramaImage": "panos/Foyer.jpg"
+    },
+    "Landing": {
+        "hotspots": [
+            {
+                "targetRoomId": "Landing-2",
+                "u": 0.9858420268256334,
+                "v": 0.5927209705372617
+            },
+            {
+                "targetRoomId": "Foyer",
+                "u": 0.7317436661698957,
+                "v": 0.5736568457538995
+            }
+        ],
+        "name": "Landing",
+        "panoramaImage": "panos/Landing.jpg"
+    },
+    "Landing-2": {
+        "hotspots": [
+            {
+                "targetRoomId": "Landing",
+                "u": 0.5538780689239502,
+                "v": 0.5219800472259521
+            }
+        ],
+        "name": "Landing-2",
+        "panoramaImage": "panos/Landing-2.jpg"
+    }
+}

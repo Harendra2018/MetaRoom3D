@@ -712,16 +712,18 @@ createCarouselItems() {
     console.log('Panorama active before exit:', this.panoramaActive);
     console.log('Panorama mesh exists:', !!this.panoramaMesh);
 
-    this.hotspotManager.getPanoramaHotspots().forEach((group) => {
-      group.children.forEach((child) => {
-        if (child.geometry) child.geometry.dispose();
-        if (child.material) {
-          if (child.material.map) child.material.map.dispose();
-          child.material.dispose();
-        }
-      });
-      this.scene.remove(group);
-    });
+    // BUGFIX (a panorama hotspot's room name -- e.g. "Dining Room" --
+    // left floating in the 3D view after leaving the panorama): this used
+    // to remove each hotspot GROUP by hand, but the name label is not in
+    // the group. It is its own scene child (so it stays upright; see
+    // HotspotManager.createPanoramaHotspots()), drawn with depthTest off on
+    // top of everything -- so it was never removed and stayed on screen.
+    // The hand-rolled loop also disposed the ring/pulse/chevron geometry
+    // that glow-hotspot.js shares across every marker, and left the stale
+    // groups in the manager's list. clearPanoramaHotspots() already does
+    // all of this correctly: disposes the per-hotspot materials, removes
+    // label and group, and empties the list.
+    this.hotspotManager.clearPanoramaHotspots();
 
     if (this.panoramaMesh) {
       console.log('Removing panorama mesh from scene');

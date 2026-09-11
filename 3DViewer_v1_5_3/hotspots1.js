@@ -8,53 +8,41 @@ let availablePanoramas = [];
 let videoHotspotData = [];
 
 /**
- * Dynamically load hotspot-config.js and video-config.js from the task's
- * pano folder.
- *
- * The two are loaded INDEPENDENTLY. video-config.js used to be read only
- * after hotspot-config.js had loaded, so a tour without hotspot-config.js
- * -- every housebin tour, whose door hotspots come from h1_HOTSPOT_V.json
- * instead -- silently lost its video panels too.
+ * Dynamically load hotspot-config.js from the correct task's pano folder
  */
 export async function loadHotspotConfig(panoramaManager = null) {
-  const basePath = window.PANO_BASE_PATH || './panos/';
-
-  // 1. Door hotspots + room mapping. Written by the GLB export; a housebin
-  //    tour has none and main.js fills these in from h1_HOTSPOT_V.json.
-  let configVideos = [];
   try {
+    const basePath = window.PANO_BASE_PATH || './panos/';
     const module = await import(`${basePath}hotspot-config.js`);
+
     roomConnections = module.roomConnections || [];
     hotspotData = module.hotspotData || [];
     modelToPanoramaMapping = module.modelToPanoramaMapping || [];
     availablePanoramas = module.availablePanoramas || [];
-    // Optional. hotspot-config.js is auto-generated and won't normally
-    // contain this, which is why video-config.js exists (below).
-    configVideos = module.videoHotspotData || [];
+    // Optional. hotspot-config.js is auto-generated and won't contain this,
+    // so it lives in video-config.js next to it (see below) and is merged in.
+    videoHotspotData = module.videoHotspotData || [];
 
+    if (!videoHotspotData.length) {
+      try {
+        const vid = await import(`${basePath}video-config.js`);
+        videoHotspotData = vid.videoHotspotData || [];
+      } catch (e) {
+        // No video-config.js in this task folder -- perfectly normal.
+      }
+    }
+
+    // Share hotspot data with PanoramaManager if provided
     if (panoramaManager && typeof panoramaManager.setHotspotData === 'function') {
       panoramaManager.setHotspotData(hotspotData);
     }
+    if (panoramaManager && typeof panoramaManager.setVideoHotspotData === 'function') {
+      panoramaManager.setVideoHotspotData(videoHotspotData);
+    }
+
     console.log(`✅ Hotspot config loaded from: ${basePath}hotspot-config.js`);
   } catch (err) {
-    console.warn(`No hotspot-config.js in ${basePath} -- expected for a housebin tour ` +
-                 '(door hotspots then come from h1_HOTSPOT_V.json).', err?.message || err);
-  }
-
-  // 2. Video panels. Hand-edited, never touched by the exporter, and
-  //    independent of which model format the tour uses.
-  videoHotspotData = configVideos;
-  if (!videoHotspotData.length) {
-    try {
-      const vid = await import(`${basePath}video-config.js`);
-      videoHotspotData = vid.videoHotspotData || [];
-      console.log(`✅ Video config loaded from: ${basePath}video-config.js (${videoHotspotData.length} panel(s))`);
-    } catch (e) {
-      // No video-config.js in this task folder -- perfectly normal.
-    }
-  }
-  if (panoramaManager && typeof panoramaManager.setVideoHotspotData === 'function') {
-    panoramaManager.setVideoHotspotData(videoHotspotData);
+    console.error('❌ Failed to load hotspot-config.js:', err);
   }
 }
 
@@ -255,22 +243,7 @@ export class HotspotManager {
       // HTML label
       const div = document.createElement('div');
       div.className = 'hotspot-label';
-      // Name line + an (initially empty) size line under it, filled in by
-      // setRoomDimensions() once the rooms have been measured.
-      const nameLine = document.createElement('div');
-      nameLine.className = 'hotspot-label-name';
-      nameLine.textContent = displayName;
-      const dimsLine = document.createElement('div');
-      dimsLine.className = 'hotspot-label-dims';
-      Object.assign(dimsLine.style, {
-        fontSize: '10px',
-        fontWeight: '600',
-        opacity: '0.9',
-        marginTop: '2px',
-        display: 'none'
-      });
-      div.appendChild(nameLine);
-      div.appendChild(dimsLine);
+      div.textContent = displayName;
       Object.assign(div.style, {
         position: 'absolute',
         background: 'rgba(0, 0, 0, 0.4)',
@@ -298,8 +271,6 @@ export class HotspotManager {
       this.labels.push({
         position: labelPosition,
         element: div,
-        dimsElement: dimsLine,
-        roomId: roomId || null,
         parent: cylinder,
         floor: node.userData.floor
       });
@@ -720,20 +691,6 @@ export class HotspotManager {
         label.element.style.display = 'block';
         label.element.style.visibility = 'visible';
       }
-    });
-  }
-
-  /**
-   * Puts each room's size under its name, e.g. "14' 0" x 20' 0"  253 sq ft".
-   * @param {Object<string,string>} textByRoomId  roomId -> text; rooms
-   *        missing from it keep a single-line label.
-   */
-  setRoomDimensions(textByRoomId) {
-    this.labels.forEach(label => {
-      if (!label.dimsElement) return;
-      const text = label.roomId ? textByRoomId[label.roomId] : null;
-      label.dimsElement.textContent = text || '';
-      label.dimsElement.style.display = text ? 'block' : 'none';
     });
   }
 
