@@ -1,0 +1,8 @@
+[C:/Users/User/Pictures/panos - Copy/Bathroom-2.jpg] 8192 4096
+[C:/Users/User/Pictures/panos - Copy/Bedroom3.jpg] 8192 4096
+[C:/Users/User/Pictures/panos - Copy/Bedroom4.jpg] 8192 4096
+[C:/Users/User/Pictures/panos - Copy/Bedroom5.jpg] 8192 4096
+[C:/Users/User/Pictures/panos - Copy/Hallway-1.jpg] 8192 4096
+[C:/Users/User/Pictures/panos - Copy/Hallway-2.jpg] 8192 4096
+[C:/Users/User/Pictures/panos - Copy/Landing.jpg] 8192 4096
+[C:/Users/User/Pictures/panos - Copy/Landing-2.jpg] 8192 4096

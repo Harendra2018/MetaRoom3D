@@ -1,10 +1,102 @@
 {
+    "Bathroom": {
+        "hotspots": [
+            {
+                "targetRoomId": "Dining-Room",
+                "u": 0.594311377245509,
+                "v": 0.6048526863084922
+            }
+        ],
+        "name": "Bathroom",
+        "panoramaImage": "panos/Bathroom.jpg"
+    },
+    "Bathroom-2": {
+        "hotspots": [
+            {
+                "targetRoomId": "Hallway-2",
+                "u": 0.6773952095808383,
+                "v": 0.6273830155979203
+            }
+        ],
+        "name": "Bathroom-2",
+        "panoramaImage": "panos/Bathroom-2.jpg"
+    },
+    "Bedroom-1": {
+        "hotspots": [
+            {
+                "targetRoomId": "Living-Room",
+                "u": 0.09056886227544911,
+                "v": 0.5667244367417678
+            }
+        ],
+        "name": "Bedroom-1",
+        "panoramaImage": "panos/Bedroom-1.jpg"
+    },
+    "Bedroom-2": {
+        "hotspots": [
+            {
+                "targetRoomId": "Dining-Room",
+                "u": 0.5937742590904236,
+                "v": 0.5257607698440552
+            }
+        ],
+        "name": "Bedroom-2",
+        "panoramaImage": "panos/Bedroom-2.jpg"
+    },
+    "Bedroom3": {
+        "hotspots": [
+            {
+                "targetRoomId": "Landing",
+                "u": 0.0374251497005988,
+                "v": 0.6013864818024264
+            }
+        ],
+        "name": "Bedroom3",
+        "panoramaImage": "panos/Bedroom3.jpg"
+    },
+    "Bedroom4": {
+        "hotspots": [
+            {
+                "targetRoomId": "Landing-2",
+                "u": 0.6961077844311377,
+                "v": 0.5771230502599654
+            }
+        ],
+        "name": "Bedroom4",
+        "panoramaImage": "panos/Bedroom4.jpg"
+    },
+    "Bedroom5": {
+        "hotspots": [
+            {
+                "targetRoomId": "Hallway-1",
+                "u": 0.8884730538922155,
+                "v": 0.5805892547660312
+            }
+        ],
+        "name": "Bedroom5",
+        "panoramaImage": "panos/Bedroom5.jpg"
+    },
     "Dining-Room": {
         "hotspots": [
             {
-                "targetRoomId": "Foyer",
-                "u": 0.7466467958271237,
-                "v": 0.5753899480069324
+                "targetRoomId": "Bedroom-2",
+                "u": 0.8869760479041916,
+                "v": 0.5927209705372617
+            },
+            {
+                "targetRoomId": "Kitchen",
+                "u": 0.5419161676646707,
+                "v": 0.584055459272097
+            },
+            {
+                "targetRoomId": "Living-Room",
+                "u": 0.7462574850299402,
+                "v": 0.5511265164644714
+            },
+            {
+                "targetRoomId": "Bathroom",
+                "u": 0.2926646706586826,
+                "v": 0.5719237435008665
             }
         ],
         "name": "Dining-Room",
@@ -13,30 +105,114 @@
     "Foyer": {
         "hotspots": [
             {
-                "targetRoomId": "Dining-Room",
-                "u": 0.4098360655737705,
-                "v": 0.5493934142114385
+                "targetRoomId": "Front-Door",
+                "u": 0.05089820359281437,
+                "v": 0.5753899480069324
+            },
+            {
+                "targetRoomId": "Living-Room",
+                "u": 0.5052395209580839,
+                "v": 0.5736568457538995
             },
             {
                 "targetRoomId": "Landing",
-                "u": 0.8599105812220567,
-                "v": 0.5580589254766031
+                "u": 0.8607784431137725,
+                "v": 0.5909878682842288
             }
         ],
         "name": "Foyer",
         "panoramaImage": "panos/Foyer.jpg"
     },
+    "Front-Door": {
+        "hotspots": [
+            {
+                "targetRoomId": "Foyer",
+                "u": 0.49176646706586824,
+                "v": 0.6065857885615251
+            }
+        ],
+        "name": "Front-Door",
+        "panoramaImage": "panos/Front-Door.jpg"
+    },
+    "Hallway-1": {
+        "hotspots": [
+            {
+                "targetRoomId": "Bedroom5",
+                "u": 0.47979041916167664,
+                "v": 0.6117850953206239
+            },
+            {
+                "targetRoomId": "Hallway-2",
+                "u": 0.23278443113772454,
+                "v": 0.6187175043327556
+            },
+            {
+                "targetRoomId": "Landing",
+                "u": 0.6482035928143712,
+                "v": 0.6031195840554593
+            },
+            {
+                "targetRoomId": "Landing-2",
+                "u": 0.8353293413173652,
+                "v": 0.6169844020797227
+            }
+        ],
+        "name": "Hallway-1",
+        "panoramaImage": "panos/Hallway-1.jpg"
+    },
+    "Hallway-2": {
+        "hotspots": [
+            {
+                "targetRoomId": "Bathroom-2",
+                "u": 0.34505988023952094,
+                "v": 0.658578856152513
+            },
+            {
+                "targetRoomId": "Hallway-1",
+                "u": 0.7994011976047904,
+                "v": 0.6291161178509532
+            }
+        ],
+        "name": "Hallway-2",
+        "panoramaImage": "panos/Hallway-2.jpg"
+    },
+    "Kitchen": {
+        "hotspots": [
+            {
+                "targetRoomId": "Dining-Room",
+                "u": 0.8922155688622755,
+                "v": 0.5805892547660312
+            }
+        ],
+        "name": "Kitchen",
+        "panoramaImage": "panos/Kitchen.jpg"
+    },
     "Landing": {
         "hotspots": [
             {
+                "targetRoomId": "Hallway-1",
+                "u": 0.15119760479041916,
+                "v": 0.5909878682842288
+            },
+            {
                 "targetRoomId": "Landing-2",
-                "u": 0.9858420268256334,
-                "v": 0.5927209705372617
+                "u": 0.0037425149700598802,
+                "v": 0.584055459272097
+            },
+            {
+                "targetRoomId": "Bedroom3",
+                "u": 0.5494011976047904,
+                "v": 0.6117850953206239
+            },
+            {
+                "targetRoomId": "Landing-2",
+                "u": 0.922002911567688,
+                "v": 0.5251761674880981
             },
             {
                 "targetRoomId": "Foyer",
-                "u": 0.7317436661698957,
-                "v": 0.5736568457538995
+                "u": 0.7455089820359282,
+                "v": 0.5788561525129983
             }
         ],
         "name": "Landing",
@@ -45,12 +221,43 @@
     "Landing-2": {
         "hotspots": [
             {
+                "targetRoomId": "Bedroom4",
+                "u": 0.16766467065868262,
+                "v": 0.6169844020797227
+            },
+            {
                 "targetRoomId": "Landing",
-                "u": 0.5538780689239502,
-                "v": 0.5219800472259521
+                "u": 0.5074850299401198,
+                "v": 0.6152512998266898
+            },
+            {
+                "targetRoomId": "Hallway-1",
+                "u": 0.37050898203592814,
+                "v": 0.6065857885615251
             }
         ],
         "name": "Landing-2",
         "panoramaImage": "panos/Landing-2.jpg"
+    },
+    "Living-Room": {
+        "hotspots": [
+            {
+                "targetRoomId": "Bedroom-1",
+                "u": 0.4101796407185629,
+                "v": 0.6048526863084922
+            },
+            {
+                "targetRoomId": "Dining-Room",
+                "u": 0.2470059880239521,
+                "v": 0.5701906412478336
+            },
+            {
+                "targetRoomId": "Foyer",
+                "u": 0.012724550898203593,
+                "v": 0.5563258232235702
+            }
+        ],
+        "name": "Living-Room",
+        "panoramaImage": "panos/Living-Room.jpg"
     }
 }

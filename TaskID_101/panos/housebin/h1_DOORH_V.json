@@ -1,6 +1,21 @@
 {
     "Doorh": [
         {
+            "IDName": "Bathroom.jpg",
+            "doorheight": 0,
+            "floorid": 0
+        },
+        {
+            "IDName": "Bedroom-1.jpg",
+            "doorheight": 0,
+            "floorid": 0
+        },
+        {
+            "IDName": "Bedroom-2.jpg",
+            "doorheight": 0,
+            "floorid": 0
+        },
+        {
             "IDName": "Dining-Room.jpg",
             "doorheight": 0,
             "floorid": 0
@@ -9,6 +24,51 @@
             "IDName": "Foyer.jpg",
             "doorheight": 0,
             "floorid": 0
+        },
+        {
+            "IDName": "Front-Door.jpg",
+            "doorheight": 0,
+            "floorid": 0
+        },
+        {
+            "IDName": "Kitchen.jpg",
+            "doorheight": 0,
+            "floorid": 0
+        },
+        {
+            "IDName": "Living-Room.jpg",
+            "doorheight": 0,
+            "floorid": 0
+        },
+        {
+            "IDName": "Bathroom-2.jpg",
+            "doorheight": 0,
+            "floorid": 1
+        },
+        {
+            "IDName": "Bedroom3.jpg",
+            "doorheight": 0,
+            "floorid": 1
+        },
+        {
+            "IDName": "Bedroom4.jpg",
+            "doorheight": 0,
+            "floorid": 1
+        },
+        {
+            "IDName": "Bedroom5.jpg",
+            "doorheight": 0,
+            "floorid": 1
+        },
+        {
+            "IDName": "Hallway-1.jpg",
+            "doorheight": 0,
+            "floorid": 1
+        },
+        {
+            "IDName": "Hallway-2.jpg",
+            "doorheight": 0,
+            "floorid": 1
         },
         {
             "IDName": "Landing.jpg",

@@ -21,6 +21,7 @@ class RoomViewer {
     this.initManagers();
     this.initFloorSystem();
     this.setupEventListeners();
+    this.setupFloorPlanHoverReveal();
     this.setupCameraViews();
 
     if (this.isMiniMode) {
@@ -415,14 +416,21 @@ class RoomViewer {
 
 /**
  * Menu text for a floor. Floors from a single GLB or a housebin keep the
- * name they were saved with in the Qt app, unchanged ("f1" stays "f1").
- * The older one-GLB-per-floor setup keys floors "floor 1", "floor 2", which
- * still get their first letter capitalised as before.
+ * name they were saved with in the Qt app ("f1", "Floor1", "Basement"...),
+ * but the Qt naming tool can't put a space between a letter and a digit,
+ * so "Floor1" gets one inserted here for display ("Floor 1"). Names that
+ * already have a space, or have no digits at all ("Basement"), are left
+ * exactly as saved. The older one-GLB-per-floor setup keys floors
+ * "floor 1", "floor 2", which still get their first letter capitalised
+ * as before.
  */
 floorDisplayName(floorKey) {
   const floor = this.floorManager && this.floorManager.floors[floorKey];
-  if (floor && floor.label) return floor.label;
-  return floorKey.charAt(0).toUpperCase() + floorKey.slice(1);
+  const raw = (floor && floor.label) ? floor.label : floorKey;
+  // "Floor1" -> "Floor 1", "F2" -> "F 2". Already-spaced names ("Floor 1")
+  // have no letter-immediately-followed-by-digit, so they're untouched.
+  const spaced = raw.replace(/([A-Za-z])(\d)/g, '$1 $2');
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
 // Generate floor dropdown options dynamically based on loaded floors
@@ -595,6 +603,18 @@ floorDisplayName(floorKey) {
     if (cameraConfig.camera && cameraConfig.target) {
       this.camera.position.set(cameraConfig.camera.x, cameraConfig.camera.y, cameraConfig.camera.z);
       this.controls.target.set(cameraConfig.target.x, cameraConfig.target.y, cameraConfig.target.z);
+
+      // Room W x L / area text only appears once you've zoomed in past
+      // this distance -- see HotspotManager.setZoomDimsThreshold(). Tied to
+      // the default (zoomed-out) camera distance rather than a fixed
+      // number so it scales with whatever units the model was built in.
+      // Tune ROOM_DIMS_ZOOM_FACTOR (smaller = have to zoom in further).
+      const dx = cameraConfig.camera.x - cameraConfig.target.x;
+      const dy = cameraConfig.camera.y - cameraConfig.target.y;
+      const dz = cameraConfig.camera.z - cameraConfig.target.z;
+      const defaultDistance = Math.hypot(dx, dy, dz);
+      const ROOM_DIMS_ZOOM_FACTOR = 0.6;
+      this.hotspotManager.setZoomDimsThreshold(defaultDistance * ROOM_DIMS_ZOOM_FACTOR);
     }
     
     this.controls.update();
@@ -932,6 +952,13 @@ floorDisplayName(floorKey) {
       this.panoramaManager.updateCarouselVisibility(this.floorPlanView);
     }
 
+    // Room sizes: shown per-room on hover/tap in the floor plan view,
+    // shown all at once (as always) in the 3D/dollhouse view.
+    if (this.hotspotManager) {
+      this.hotspotManager.setFloorPlanHoverMode(this.floorPlanView);
+    }
+    this._hoveredRoomId = null;
+
     this.controls.update();
 
     // Ensure labels are updated after view mode change
@@ -1040,11 +1067,91 @@ floorDisplayName(floorKey) {
 
       if (!this.wallLabels) this.wallLabels = new WallLengthLabels();
       this.wallLabels.build(measured, this.floorManager.getFloors());
+
+      // Room nodes for the hover/tap raycast in the floor plan view -- see
+      // setupFloorPlanHoverReveal(). Keeps floorKey so the raycast can be
+      // restricted to whichever floor(s) are actually on screen -- without
+      // that, a ray straight down always lands on the topmost floor first,
+      // in the stacked "all floors" view.
+      this.roomHoverNodes = Object.values(measured).flat()
+        .filter(r => r.roomId && r.node)
+        .map(r => ({ node: r.node, roomId: r.roomId, floorKey: r.floorKey }));
+
       console.log('Room measurements:', Object.values(measured).flat()
         .map(r => `${r.roomId} ${text[r.roomId]}`).join(' | '));
     } catch (e) {
       console.warn('Room measurements unavailable:', e);
     }
+  }
+
+  /**
+   * Floor plan view shows every room's size (and its walls' lengths) only
+   * for the room under the pointer -- hover on desktop, tap on mobile --
+   * instead of all at once. Raycasts straight down against the room's own
+   * geometry (whatever it hits first: floor, wall, etc.) and walks up to
+   * the room root to read its roomId.
+   */
+  setupFloorPlanHoverReveal() {
+    const setHover = (roomId) => {
+      if (this._hoveredRoomId === roomId) return;
+      this._hoveredRoomId = roomId;
+      this.hotspotManager.setHoveredRoom(roomId);
+      if (this.wallLabels) this.wallLabels.setHoveredRoom(roomId);
+    };
+
+    const roomIdAt = (clientX, clientY) => {
+      if (!this.floorPlanView || this.isMiniMode || !this.roomHoverNodes || !this.roomHoverNodes.length) return null;
+      const currentView = this.floorManager.getCurrentFloorView();
+      const candidates = currentView === 'all'
+        ? this.roomHoverNodes
+        : this.roomHoverNodes.filter(r => r.floorKey === currentView);
+      if (!candidates.length) return null;
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((clientX - rect.left) / rect.width) * 2 - 1,
+        -((clientY - rect.top) / rect.height) * 2 + 1
+      );
+      this.raycaster.setFromCamera(mouse, this.activeCamera);
+      const intersects = this.raycaster.intersectObjects(candidates.map(r => r.node), true);
+      if (!intersects.length) return null;
+      let obj = intersects[0].object;
+      while (obj) {
+        const hit = candidates.find(r => r.node === obj);
+        if (hit) return hit.roomId;
+        obj = obj.parent;
+      }
+      return null;
+    };
+
+    // Desktop: reveal whatever room the mouse is over, hide when it leaves.
+    this.renderer.domElement.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'touch') return; // handled by tap below
+      setHover(roomIdAt(e.clientX, e.clientY));
+    });
+    this.renderer.domElement.addEventListener('pointerleave', (e) => {
+      if (e.pointerType === 'touch') return;
+      setHover(null);
+    });
+
+    // Mobile: a tap reveals that room; tapping empty space hides it again.
+    // Tracks touch movement so a drag-to-pan/rotate gesture doesn't also
+    // toggle a room's size open.
+    let touchStart = null;
+    this.renderer.domElement.addEventListener('touchstart', (e) => {
+      if (!this.floorPlanView || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      touchStart = { x: t.clientX, y: t.clientY };
+    }, { passive: true });
+    this.renderer.domElement.addEventListener('touchend', (e) => {
+      if (!this.floorPlanView || !touchStart) return;
+      const t = e.changedTouches[0];
+      const moved = Math.hypot(t.clientX - touchStart.x, t.clientY - touchStart.y);
+      touchStart = null;
+      if (moved > 10) return; // was a drag, not a tap
+      const roomId = roomIdAt(t.clientX, t.clientY);
+      // Tapping the already-open room, or empty space, closes it again.
+      setHover(roomId && roomId !== this._hoveredRoomId ? roomId : null);
+    }, { passive: true });
   }
 
   animate() {

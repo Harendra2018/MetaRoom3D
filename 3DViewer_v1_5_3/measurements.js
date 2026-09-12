@@ -153,15 +153,30 @@ function simplifyCollinear(poly, tolerance = 0.005) {
 }
 
 /**
- * How much of the floor edge a->b is covered by wall triangles standing on
- * it, 0..1. A hidden wall has no triangles, so it scores 0; a split wall
- * with only one half hidden still scores ~1 (its other half spans the edge).
+ * Splits the floor edge a->b into alternating covered/open sub-segments
+ * based on which parts have wall triangles standing on them, 0..1 along
+ * the edge. This is the piece that makes a doorway cut into the *middle*
+ * of an otherwise straight wall show up as its own labelled segment: the
+ * floor's own outline has no corner there (the floor runs straight through
+ * the opening), so outlineFromTriangles() alone would only ever see one
+ * long straight edge and report a single combined length for it. Walking
+ * the actual wall coverage along that edge is the only way to find the
+ * doorway's own width.
+ *
+ * minSeg (metres) absorbs wall-thickness noise -- slivers of coverage
+ * shorter than this at a raw-triangle level get merged into their
+ * neighbour rather than reported as their own tiny segment.
+ *
+ * Returns [{ lo, hi, length, covered }, ...] sorted along the edge, always
+ * at least one entry for L > 0 (falling back to a single covered/open
+ * segment if the wall geometry can't be resolved finely enough).
  */
-export function wallCoverage(a, b, wallTris, planeTol = 0.03) {
+export function wallIntervals(a, b, wallTris, planeTol = 0.03, minSeg = 0.05) {
   const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
-  if (L < 1e-6) return 0;
+  if (L < 1e-6) return [];
   const ux = dx / L, uz = dz / L;
-  const intervals = [];
+
+  const raw = [];
   for (const t of wallTris) {
     let lo = Infinity, hi = -Infinity, onLine = true;
     for (const p of t) {
@@ -171,17 +186,44 @@ export function wallCoverage(a, b, wallTris, planeTol = 0.03) {
       lo = Math.min(lo, s); hi = Math.max(hi, s);
     }
     if (!onLine || hi < 0 || lo > L) continue;
-    intervals.push([Math.max(0, lo), Math.min(L, hi)]);
+    raw.push([Math.max(0, lo), Math.min(L, hi)]);
   }
-  intervals.sort((p, q) => p[0] - q[0]);
-  let covered = 0, curLo = null, curHi = null;
-  for (const [lo, hi] of intervals) {
-    if (curHi === null || lo > curHi) {
-      if (curHi !== null) covered += curHi - curLo;
-      curLo = lo; curHi = hi;
-    } else curHi = Math.max(curHi, hi);
+  raw.sort((p, q) => p[0] - q[0]);
+
+  // Merge raw triangle spans into covered ranges, closing gaps under
+  // minSeg (wall-thickness noise, not a real doorway).
+  const covered = [];
+  for (const [lo, hi] of raw) {
+    const last = covered[covered.length - 1];
+    if (last && lo <= last[1] + minSeg) last[1] = Math.max(last[1], hi);
+    else covered.push([lo, hi]);
   }
-  if (curHi !== null) covered += curHi - curLo;
+
+  // Walk the covered ranges, filling the gaps between them as open
+  // (unwalled) segments -- unless a gap is itself under minSeg, in which
+  // case it's noise and gets folded into the covered segment after it.
+  const segs = [];
+  let cursor = 0;
+  for (const [lo, hi] of covered) {
+    if (lo - cursor > minSeg) segs.push({ lo: cursor, hi: lo, covered: false });
+    segs.push({ lo, hi, covered: true });
+    cursor = hi;
+  }
+  if (L - cursor > minSeg) segs.push({ lo: cursor, hi: L, covered: false });
+
+  return segs.map(s => ({ ...s, length: s.hi - s.lo }));
+}
+
+/**
+ * How much of the floor edge a->b is covered by wall triangles standing on
+ * it, 0..1. A hidden wall has no triangles, so it scores 0; a split wall
+ * with only one half hidden still scores ~1 (its other half spans the edge).
+ */
+export function wallCoverage(a, b, wallTris, planeTol = 0.03) {
+  const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  if (L < 1e-6) return 0;
+  const segs = wallIntervals(a, b, wallTris, planeTol);
+  const covered = segs.filter(s => s.covered).reduce((sum, s) => sum + s.length, 0);
   return covered / L;
 }
 
@@ -200,7 +242,7 @@ function surfaceKind(mesh) {
   return null;
 }
 
-function isRoomNode(obj) {
+export function isRoomNode(obj) {
   if (!obj.userData || obj.userData.roomId === undefined) return false;
   if (obj.userData.type === 'room_hotspot' || obj.userData.type === 'panorama_anchor') return false;
   let hasMesh = false;
@@ -264,11 +306,23 @@ export function measureRoom(roomNode) {
   if (outline.length < 3) return null;
   const wallPlan = wallTris.map(plan);
 
-  const walls = outline.map((a, i) => {
+  const walls = [];
+  outline.forEach((a, i) => {
     const b = outline[(i + 1) % outline.length];
-    const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const visible = wallCoverage(a, b, wallPlan) > 0.5;
-    return { a, b, length, visible };
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
+    const segs = L > 1e-6 ? wallIntervals(a, b, wallPlan) : [];
+    if (!segs.length) {
+      // Wall geometry couldn't be resolved finely enough (or this edge is
+      // itself tiny) -- fall back to one entry spanning the whole edge, as
+      // before.
+      walls.push({ a, b, length: L, visible: wallCoverage(a, b, wallPlan) > 0.5 });
+      return;
+    }
+    const ux = dx / L, uz = dz / L;
+    const pointAt = s => [a[0] + ux * s, a[1] + uz * s];
+    for (const seg of segs) {
+      walls.push({ a: pointAt(seg.lo), b: pointAt(seg.hi), length: seg.length, visible: seg.covered });
+    }
   });
 
   const { width, length } = boundingSize(outline);
@@ -311,14 +365,18 @@ export function roomDimensionText(r, units = currentUnits()) {
 
 export class WallLengthLabels {
   constructor() {
-    this.labels = [];     // { element, anchor: Object3D, a: Object3D, b: Object3D, floorKey }
+    this.labels = [];     // { element, anchor, a, b, floorKey, rooms: Set<roomId>, open }
     this.visible = false;
+    this.hoveredRoomId = null;   // null = nothing hovered -> all hidden
   }
 
   /**
-   * Builds one label per visible wall. A wall two rooms share is labelled
-   * once. Anchors are children of the room nodes, so labels follow the
-   * model wherever it moves.
+   * Builds one label per boundary wall, including open (doorway/missing
+   * wall) segments -- those get a lighter, dashed pill so it's clear
+   * there's no physical wall there, but the length is never left out.
+   * A wall two rooms share is labelled once and remembers both roomIds so
+   * hovering either room can reveal it. Anchors are children of the room
+   * nodes, so labels follow the model wherever it moves.
    */
   build(measuredFloors, floors) {
     this.clear();
@@ -327,7 +385,7 @@ export class WallLengthLabels {
       const floorModel = (floors && floors[floorKey] && floors[floorKey].model) || null;
       for (const room of rooms) {
         for (const w of room.walls) {
-          if (!w.visible || w.length < 0.05) continue;
+          if (w.length < 0.05) continue;
           const y = room.floorY + 0.02;
           const mk = ([x, z]) => {
             const o = new THREE.Object3D();
@@ -342,11 +400,13 @@ export class WallLengthLabels {
           // Shared-wall check in the floor's own frame.
           room.node.updateMatrixWorld(true);
           const pa = toFloorPlan(a, floorModel), pb = toFloorPlan(b, floorModel);
-          if (placed.some(s => sameSegment(s, pa, pb))) {
+          const existing = placed.find(s => sameSegment(s.pts, pa, pb));
+          if (existing) {
             [a, b, mid].forEach(o => room.node.remove(o));
+            existing.rooms.add(room.roomId);
+            if (existing.label) existing.label.rooms = existing.rooms;
             continue;
           }
-          placed.push([pa, pb]);
 
           const el = document.createElement('div');
           el.className = 'wall-length-label';
@@ -354,7 +414,8 @@ export class WallLengthLabels {
           el.dataset.meters = String(w.length);
           Object.assign(el.style, {
             position: 'absolute',
-            background: 'rgba(0, 0, 0, 0.85)',
+            background: w.visible ? 'rgba(0, 0, 0, 0.85)' : 'rgba(0, 0, 0, 0.55)',
+            border: w.visible ? 'none' : '1px dashed rgba(255,255,255,0.85)',
             color: '#fff',
             padding: '3px 10px',
             borderRadius: '999px',
@@ -364,10 +425,16 @@ export class WallLengthLabels {
             transform: 'translate(-50%, -50%)',
             pointerEvents: 'none',
             zIndex: '99',
+            opacity: '0',
+            transition: 'opacity 0.15s ease',
             display: 'none'
           });
           document.body.appendChild(el);
-          this.labels.push({ element: el, anchor: mid, a, b, floorKey });
+
+          const rooms = new Set([room.roomId]);
+          const label = { element: el, anchor: mid, a, b, floorKey, rooms, open: !w.visible };
+          this.labels.push(label);
+          placed.push({ pts: [pa, pb], rooms, label });
         }
       }
     }
@@ -379,6 +446,12 @@ export class WallLengthLabels {
       [l.anchor, l.a, l.b].forEach(o => o.parent && o.parent.remove(o));
     }
     this.labels = [];
+    this.hoveredRoomId = null;
+  }
+
+  /** Reveal only the walls belonging to this room (null clears the reveal). */
+  setHoveredRoom(roomId) {
+    this.hoveredRoomId = roomId || null;
   }
 
   /** Called every frame. show=false hides everything (not in floor plan view). */
@@ -386,7 +459,10 @@ export class WallLengthLabels {
     const w = window.innerWidth, h = window.innerHeight;
     const pm = new THREE.Vector3(), pa = new THREE.Vector3(), pb = new THREE.Vector3();
     for (const l of this.labels) {
-      if (!show || !isFloorShown(l.floorKey) || !isAncestorVisible(l.anchor)) {
+      const wanted = show && isFloorShown(l.floorKey) && isAncestorVisible(l.anchor) &&
+        this.hoveredRoomId && l.rooms.has(this.hoveredRoomId);
+      if (!wanted) {
+        if (l.element.style.opacity !== '0') l.element.style.opacity = '0';
         if (l.element.style.display !== 'none') l.element.style.display = 'none';
         continue;
       }
@@ -394,17 +470,21 @@ export class WallLengthLabels {
       l.a.getWorldPosition(pa).project(camera);
       l.b.getWorldPosition(pb).project(camera);
       const x = (pm.x * 0.5 + 0.5) * w, y = (-pm.y * 0.5 + 0.5) * h;
-      // Hide a label that wouldn't fit along its wall at this zoom -- short
-      // jogs otherwise pile their pills on top of the neighbouring walls.
+      // Shrink (rather than hide) a label that wouldn't fully fit along its
+      // wall at this zoom, so short jogs still show a length -- just smaller.
       const screenLen = Math.hypot((pa.x - pb.x) * 0.5 * w, (pa.y - pb.y) * 0.5 * h);
       const offscreen = pm.z > 1 || x < -50 || x > w + 50 || y < -50 || y > h + 50;
-      if (offscreen || screenLen < 48) {
-        if (l.element.style.display !== 'none') l.element.style.display = 'none';
+      if (offscreen) {
+        l.element.style.opacity = '0';
+        l.element.style.display = 'none';
         continue;
       }
       l.element.style.display = 'block';
+      l.element.style.opacity = '1';
       l.element.style.left = `${x}px`;
       l.element.style.top = `${y}px`;
+      const scale = screenLen < 40 ? Math.max(0.65, screenLen / 40) : 1;
+      l.element.style.transform = `translate(-50%, -50%) scale(${scale})`;
     }
   }
 }
@@ -419,8 +499,15 @@ function toFloorPlan(obj, floorRoot) {
   return [v.x, v.z];
 }
 
-function sameSegment([p, q], a, b, tol = 0.15) {
+function sameSegment([p, q], a, b, tol = 0.1) {
   const d = (u, w) => Math.hypot(u[0] - w[0], u[1] - w[1]);
+  // Require the lengths to roughly match too, not just nearby endpoints --
+  // otherwise a short jog can falsely dedup against an unrelated segment
+  // from a different room where several short walls converge at a corner,
+  // silently swallowing the short one's own label.
+  const lenPQ = Math.hypot(q[0] - p[0], q[1] - p[1]);
+  const lenAB = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  if (Math.abs(lenPQ - lenAB) > Math.max(0.1, 0.25 * Math.max(lenPQ, lenAB))) return false;
   return (d(p, a) < tol && d(q, b) < tol) || (d(p, b) < tol && d(q, a) < tol);
 }
 

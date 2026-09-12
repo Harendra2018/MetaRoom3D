@@ -214,7 +214,31 @@ export class HotspotManager {
 
       const cylinder = new THREE.Mesh(geometry, material);
       node.add(cylinder);
-      cylinder.position.set(0, 0, 0.28);
+      // FIX: was a hardcoded position.set(0, 0, 0.28) (then briefly 1.0,
+      // then -1.0 while chasing the wrong theory). The real issue: this
+      // anchor node is NOT at floor level -- per housebin.js's buildRoom()
+      // (and the matching GLBExporter::exportGLB() convention it mirrors),
+      // "room_hotspot" anchors sit at CAMERA HEIGHT above the floor, with
+      // a baked-in +90deg X rotation that makes the anchor's own local +Z
+      // point DOWN toward the floor. A single hardcoded constant could
+      // only ever approximate one room's camera height, which is why it
+      // was "a little below" on rooms shot slightly taller than 0.28+1.0
+      // implied, and why guessing bigger/smaller/negative constants just
+      // moved the same mismatch around instead of fixing it.
+      //
+      // The cylinder is 2.0 tall, so its local Z span is offset +/- 1.0.
+      // Its lowest edge (offset + 1.0, since +Z is down here) needs to
+      // land exactly `cameraHeight` further down the anchor than the
+      // anchor itself -- i.e. offset = cameraHeight - 1.0 -- so it sits
+      // flush with the floor regardless of that room's actual camera
+      // height. cameraHeight lives on the parent Room node's userData
+      // (see housebin.js's buildRoom()); 1.28 is only a last-resort
+      // fallback for a node that somehow lacks it.
+      const cameraHeight = (node.parent && node.parent.userData &&
+        typeof node.parent.userData.cameraHeight === 'number')
+        ? node.parent.userData.cameraHeight
+        : 1.28;
+      cylinder.position.set(0, 0, cameraHeight - 1.0);
       cylinder.rotation.set(-Math.PI / 2, 0, 0);
       cylinder.name = `rot-hotspot-${index}`;
       cylinder.userData.floor = node.userData.floor;
@@ -329,6 +353,19 @@ export class HotspotManager {
         const maxScale = 2.0;
         scaleFactor = baseDistance / distance;
         scaleFactor = Math.max(minScale, Math.min(maxScale, scaleFactor));
+
+        // 3D view: the W x L / area line only earns its place once you've
+        // zoomed in close enough to actually want it -- see
+        // setZoomDimsThreshold(). Floor plan view is untouched here; there
+        // dims are governed entirely by hover/tap (setHoveredRoom()).
+        if (!this._floorPlanHoverMode && label.dimsElement) {
+          const text = label.roomId ? (this._roomDimText || {})[label.roomId] : null;
+          const threshold = this._zoomDimsThreshold;
+          const show = !!text && (threshold == null || distance <= threshold);
+          if (label.dimsElement.textContent !== (text || '')) label.dimsElement.textContent = text || '';
+          label.dimsElement.style.display = show ? 'block' : 'none';
+          label.dimsElement.style.opacity = show ? '1' : '0';
+        }
       }
 
       tempVector.copy(worldPosition);
@@ -350,6 +387,18 @@ export class HotspotManager {
         label.element.style.transform = `translate(-50%, -50%) scale(${scaleFactor})`;
       }
     });
+  }
+
+  /**
+   * Distance (in world units, i.e. camera-to-room) at or under which the
+   * W x L / area line appears under a room's name in the 3D view. Pass
+   * null to go back to always showing it. See RoomViewer.adjustCameraFor-
+   * FloorView() in main.js, which sets this from the default camera
+   * distance so it scales with whatever units the model is built in.
+   * @param {number|null} distance
+   */
+  setZoomDimsThreshold(distance) {
+    this._zoomDimsThreshold = (typeof distance === 'number') ? distance : null;
   }
 
   clearPanoramaHotspots() {
@@ -725,15 +774,56 @@ export class HotspotManager {
 
   /**
    * Puts each room's size under its name, e.g. "14' 0" x 20' 0"  253 sq ft".
+   * Visibility is handled elsewhere: in the 3D view by zoom distance (see
+   * setZoomDimsThreshold(), applied each frame in updateRotTextFacing()),
+   * in the floor plan view by hover/tap (see setHoveredRoom()). This just
+   * stores the text and starts every dims line hidden so it doesn't flash
+   * on before the first per-frame update runs.
    * @param {Object<string,string>} textByRoomId  roomId -> text; rooms
    *        missing from it keep a single-line label.
    */
   setRoomDimensions(textByRoomId) {
+    this._roomDimText = textByRoomId || {};
     this.labels.forEach(label => {
       if (!label.dimsElement) return;
-      const text = label.roomId ? textByRoomId[label.roomId] : null;
+      const text = label.roomId ? this._roomDimText[label.roomId] : null;
       label.dimsElement.textContent = text || '';
-      label.dimsElement.style.display = text ? 'block' : 'none';
+      Object.assign(label.dimsElement.style, {
+        display: 'none',
+        opacity: '0',
+        transition: 'opacity 0.15s ease'
+      });
+    });
+  }
+
+  /**
+   * Switches between the two dims-visibility behaviors: false (3D/dollhouse
+   * view) reveals a room's size by zoom distance; true (floor plan view)
+   * hides them all until setHoveredRoom() reveals one.
+   * @param {boolean} active
+   */
+  setFloorPlanHoverMode(active) {
+    this._floorPlanHoverMode = !!active;
+    if (!active) this.hoveredRoomId = null;
+    this.setRoomDimensions(this._roomDimText || {});
+  }
+
+  /**
+   * Reveal the size line only for one room (hover on desktop, tap on
+   * mobile); pass null/undefined to hide every size line again. Only takes
+   * effect in floor plan hover mode -- see setFloorPlanHoverMode().
+   * @param {string|null} roomId
+   */
+  setHoveredRoom(roomId) {
+    if (!this._floorPlanHoverMode) return;
+    this.hoveredRoomId = roomId || null;
+    this.labels.forEach(label => {
+      if (!label.dimsElement) return;
+      const text = label.roomId ? (this._roomDimText || {})[label.roomId] : null;
+      const show = !!text && label.roomId === this.hoveredRoomId;
+      label.dimsElement.textContent = text || '';
+      label.dimsElement.style.display = show ? 'block' : 'none';
+      label.dimsElement.style.opacity = show ? '1' : '0';
     });
   }
 

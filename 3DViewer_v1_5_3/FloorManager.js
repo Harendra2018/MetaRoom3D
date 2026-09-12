@@ -400,7 +400,7 @@ export class FloorManager {
           lineGeom.setPositions([p1.x, p1.y, p1.z, p2.x, p2.y, p2.z]);
 
           const lineMat = new LineMaterial({
-            color: 0x4287F5, //FLOOR PLAN COLOR////////////////////////////////////////////////////////////////////////////
+            color: 0x000000, //FLOOR PLAN COLOR (boundary/wall lines, black)////////////////////////////////////////////////
             linewidth: 4, // adjust thickness
           });
           lineMat.resolution.set(window.innerWidth, window.innerHeight);
