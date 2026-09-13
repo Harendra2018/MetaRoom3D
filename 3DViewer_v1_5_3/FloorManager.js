@@ -8,6 +8,12 @@ import { splitIntoFloors } from './floorsplit.js';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
+// Batched multi-segment counterpart of Line2/LineGeometry above -- one
+// LineSegments2 draws every wall segment for a whole floor in a single
+// draw call, instead of createWireframeForFloor's old one-Line2-per-
+// intersected-triangle approach.
+import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 
 export class FloorManager {
    constructor(scene) {
@@ -355,7 +361,22 @@ export class FloorManager {
   }
 
   /**
-   * Create cross-section wireframe for floor plan view
+   * Build the floor-plan overlay for one floor.
+   *
+   * Prefers the wall-segment list the Qt exporter now bakes into each room
+   * node's glTF extras (extras.floorPlan -- see glbexporter.h's
+   * exportGLB(), "Lightweight top-down wall-segment list" comment): a
+   * handful of precomputed [x0,y0,z0,x1,y1,z1] segments per room, already
+   * in that room node's own local space, so this only needs to walk the
+   * (small) room-node hierarchy and transform each segment by its node's
+   * matrixWorld -- no mesh traversal, no per-triangle plane-intersection
+   * math, and everything for a floor batches into ONE LineSegments2 draw
+   * call instead of one Line2 object per intersected triangle edge.
+   *
+   * Falls back to the old runtime triangle-slice (createWireframeFromMesh)
+   * for a GLB exported before extras.floorPlan existed, or a housebin-built
+   * floor (housebin.js) that never carries glTF extras at all -- so nothing
+   * regresses for older files, it just costs what it always cost before.
    */
   createWireframeForFloor(floorKey, cutHeight = 1.6) {
     const floor = this.floors[floorKey];
@@ -364,6 +385,64 @@ export class FloorManager {
     if (floor.wireframe) {
       this.scene.remove(floor.wireframe);
     }
+
+    floor.model.updateMatrixWorld(true);
+
+    const segments = []; // flat [x,y,z, x,y,z, ...] pairs, world space
+    floor.model.traverse(child => {
+      const floorPlan = child.userData && (child.userData.floorPlan || child.userData.extras?.floorPlan);
+      if (!Array.isArray(floorPlan) || floorPlan.length === 0) return;
+
+      const matrixWorld = child.matrixWorld;
+      floorPlan.forEach(seg => {
+        if (!Array.isArray(seg) || seg.length < 6) return;
+        const a = new THREE.Vector3(seg[0], seg[1], seg[2]).applyMatrix4(matrixWorld);
+        const b = new THREE.Vector3(seg[3], seg[4], seg[5]).applyMatrix4(matrixWorld);
+        segments.push(a.x, a.y, a.z, b.x, b.y, b.z);
+      });
+    });
+
+    if (segments.length === 0) {
+      // No baked plan on this floor at all (older export, or a
+      // housebin-built floor) -- fall back to the original per-triangle
+      // slice so the floor-plan view still works, just at the old cost.
+      this.createWireframeFromMesh(floorKey, cutHeight);
+      return;
+    }
+
+    const lineGeom = new LineSegmentsGeometry();
+    lineGeom.setPositions(segments);
+
+    const lineMat = new LineMaterial({
+      color: 0x000000, //FLOOR PLAN COLOR (boundary/wall lines, black)////////////////////////////////////////////////
+      linewidth: 4, // adjust thickness
+    });
+    lineMat.resolution.set(window.innerWidth, window.innerHeight);
+
+    const lines = new LineSegments2(lineGeom, lineMat);
+    lines.computeLineDistances();
+
+    floor.wireframe = new THREE.Group();
+    floor.wireframe.add(lines);
+    // `a`/`b` above were already transformed by each node's matrixWorld,
+    // which already bakes in floor.model.position -- so the segments are
+    // already in world space. Leave the group at the origin; copying
+    // floor.model.position here would apply that offset a second time.
+    floor.wireframe.visible = false;
+  }
+
+  /**
+   * Original cross-section wireframe for floor plan view: slices every
+   * triangle of the floor's mesh against a horizontal plane at runtime.
+   * Kept as the fallback path for floors with no baked extras.floorPlan
+   * (see createWireframeForFloor above) -- this is the expensive one,
+   * since its cost scales with the floor's total triangle count rather
+   * than its wall-segment count.
+   */
+  createWireframeFromMesh(floorKey, cutHeight = 1.6) {
+    const floor = this.floors[floorKey];
+    if (!floor.model) return;
+
     floor.wireframe = new THREE.Group();
 
     const box = new THREE.Box3().setFromObject(floor.model);
@@ -388,9 +467,27 @@ export class FloorManager {
             const b = new THREE.Vector3().fromBufferAttribute(posAttr, indices[i + 1]).applyMatrix4(matrixWorld);
             const c = new THREE.Vector3().fromBufferAttribute(posAttr, indices[i + 2]).applyMatrix4(matrixWorld);
 
-            this.addEdgeIntersection(a, b, plane, segments);
-            this.addEdgeIntersection(b, c, plane, segments);
-            this.addEdgeIntersection(c, a, plane, segments);
+            // Collect the plane/edge intersection points for this triangle
+            // (0 if the plane misses it, 2 if it slices through it -- a
+            // plane can only cross a triangle's boundary an even number of
+            // times) and, when there are 2, draw ONE segment between them.
+            // That segment is the actual cross-section line for this
+            // triangle.
+            const points = [];
+            this.addEdgeIntersection(a, b, plane, points);
+            this.addEdgeIntersection(b, c, plane, points);
+            this.addEdgeIntersection(c, a, plane, points);
+
+            // A vertex sitting exactly on the plane gets reported twice (by
+            // both of its edges), so de-dupe before deciding what to draw.
+            const unique = [];
+            points.forEach(p => {
+              if (!unique.some(u => u.distanceToSquared(p) < 1e-10)) unique.push(p);
+            });
+
+            if (unique.length === 2) {
+              segments.push([unique[0], unique[1]]);
+            }
           }
         }
 
@@ -412,24 +509,36 @@ export class FloorManager {
       }
     });
 
-    floor.wireframe.position.copy(floor.model.position);
+    // Same reasoning as createWireframeForFloor: posAttr vertices were
+    // already put through each mesh's matrixWorld (which bakes in
+    // floor.model.position), so the segments are already in world space --
+    // don't add floor.model.position again here.
     floor.wireframe.visible = false;
   }
 
   /**
-   * Add intersection point of edge with slicing plane (stores pairs)
+   * If edge v1-v2 crosses the slicing plane, append the single intersection
+   * point to `points`. (Used per-triangle: with up to 3 edges tested, the
+   * plane crosses at most 2 of them, and the caller joins those 2 points
+   * into the triangle's cross-section segment. This used to instead push
+   * [v1, intersect] and [intersect, v2] as two separate "segments" -- for a
+   * vertical wall edge, v1/v2/intersect all share the same X/Z, so the
+   * floor-plan view (a straight-down orthographic camera) collapsed each
+   * one into a zero-length line. A thick line's round joins render a
+   * zero-length segment as a solid dot, which is what was showing up at
+   * every such wall corner.)
    */
-  addEdgeIntersection(v1, v2, plane, segments) {
+  addEdgeIntersection(v1, v2, plane, points) {
     const d1 = plane.distanceToPoint(v1);
     const d2 = plane.distanceToPoint(v2);
 
+    // Guard against a divide-by-zero when the whole edge lies in the plane
+    // (d1 === d2 === 0); that edge doesn't contribute a crossing point.
+    if (d1 === d2) return;
+
     if ((d1 >= 0 && d2 <= 0) || (d1 <= 0 && d2 >= 0)) {
       const t = d1 / (d1 - d2);
-      const intersect = new THREE.Vector3().lerpVectors(v1, v2, t);
-
-      // store as a segment
-      segments.push([v1.clone(), intersect.clone()]);
-      segments.push([intersect.clone(), v2.clone()]);
+      points.push(new THREE.Vector3().lerpVectors(v1, v2, t));
     }
   }
 

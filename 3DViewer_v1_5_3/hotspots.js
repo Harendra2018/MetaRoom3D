@@ -487,11 +487,11 @@ export class HotspotManager {
 
       // Outline. Set outlineWidth to 0 for no stroke.
       outline: '#000000',
-      outlineWidth: 12,
+      outlineWidth: 0,
 
       // Optional soft drop shadow -- often reads better than a hard
       // outline over a busy photo. null to skip.
-      shadow: null,      // { color: 'rgba(0,0,0,.75)', blur: 24, x: 0, y: 6 }
+      shadow: { color: 'rgba(0,0,0,.75)', blur: 24, x: 0, y: 6 },
 
       // Optional pill behind the text. null to skip.
       background: null,  // { color: 'rgba(10,16,40,.55)', padding: 26, radius: 28 }
@@ -689,15 +689,22 @@ export class HotspotManager {
       ctx.lineJoin = 'round';    // stops spikes on tight corners like "W"
       ctx.miterLimit = 2;
       ctx.strokeText(label, cx, cy);
-    }
 
-    // The shadow is spent on the stroke (or on the fill when there is no
-    // stroke); leaving it on would double-darken the fill pass.
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
+      // The shadow was spent on the stroke pass above; clear it so it
+      // doesn't double up (stroke + fill both shadowed) on the fill pass
+      // below. When there's no stroke, the shadow is left set so the
+      // fill pass -- the only pass that runs -- actually gets it.
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+    }
 
     ctx.fillStyle = S.color;
     ctx.fillText(label, cx, cy);
+
+    // Belt-and-braces: this canvas isn't drawn on again, but leave it in a
+    // clean state rather than relying on that.
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;

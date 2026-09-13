@@ -782,19 +782,28 @@ canvas {
 }
 
 .carousel-arrow {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 56px;
   background: rgba(0, 0, 0, 0.4);
   border: none;
-  border-radius: 50%;
+  border-radius: 17px; /* == width / 2, so the short sides end in full semicircles -- the tall "pill" shape */
   color: white;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  flex-shrink: 0; /* keep the pill from being squeezed by the flex row it sits in */
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+}
+
+.carousel-arrow svg {
+  display: block;
+}
+
+/* Both arrows share one right-pointing chevron icon; mirror it for the left button. */
+.carousel-arrow.left svg {
+  transform: scaleX(-1);
 }
 
 .carousel-arrow:hover {

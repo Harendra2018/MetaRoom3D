@@ -17,9 +17,6 @@ export class PanoramaManager {
 
     this.autoRotateTimeout = null;
     this.wheelHandler = null; // keep reference for cleanup
-    this.touchStartHandler = null; // pinch-to-zoom, keep references for cleanup
-    this.touchMoveHandler = null;
-    this.touchEndHandler = null;
     this.startListener = null;
     this.endListener = null;
     this.userStoppedAutoRotate = false; // true when user has manually paused auto-rotate
@@ -166,14 +163,9 @@ export class PanoramaManager {
     carouselContent.className = 'carousel-content';
     carouselContent.style.display = 'none'; // Start collapsed
 
-    // Chevron icon shared by both arrows; the "left" class mirrors it via
-    // CSS (see .carousel-arrow.left svg in styles.css) instead of needing a
-    // second, separately-drawn path.
-    const chevronIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 4l7 8-7 8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-
     const leftArrow = document.createElement('button');
     leftArrow.className = 'carousel-arrow left';
-    leftArrow.innerHTML = chevronIcon;
+    leftArrow.innerHTML = '<';
     leftArrow.addEventListener('click', () => this.navigateCarousel(-1));
 
     const container = document.createElement('div');
@@ -187,7 +179,7 @@ export class PanoramaManager {
 
     const rightArrow = document.createElement('button');
     rightArrow.className = 'carousel-arrow right';
-    rightArrow.innerHTML = chevronIcon;
+    rightArrow.innerHTML = '>';
     rightArrow.addEventListener('click', () => this.navigateCarousel(1));
 
     carouselContent.appendChild(leftArrow);
@@ -830,16 +822,6 @@ createCarouselItems() {
       window.removeEventListener('wheel', this.wheelHandler);
       this.wheelHandler = null;
     }
-    if (this.touchStartHandler) {
-      const target = this.renderer.domElement;
-      target.removeEventListener('touchstart', this.touchStartHandler);
-      target.removeEventListener('touchmove', this.touchMoveHandler);
-      target.removeEventListener('touchend', this.touchEndHandler);
-      target.removeEventListener('touchcancel', this.touchEndHandler);
-      this.touchStartHandler = null;
-      this.touchMoveHandler = null;
-      this.touchEndHandler = null;
-    }
     if (this.startListener) {
       this.controls.removeEventListener('start', this.startListener);
       this.startListener = null;
@@ -890,64 +872,6 @@ createCarouselItems() {
       this.camera.updateProjectionMatrix();
     };
     window.addEventListener('wheel', this.wheelHandler);
-
-    // Pinch-to-zoom. OrbitControls' own touch dolly is disabled by
-    // enableZoom = false above (the same flag the wheelHandler dolly
-    // replaces for mouse/trackpad), and a touchscreen pinch never fires a
-    // `wheel` event -- without this, mobile had no zoom control at all.
-    // Mirrors wheelHandler's fov clamp exactly, driven by the change in
-    // distance between two touch points instead of deltaY.
-    let pinchStartDist = null;
-    let pinchStartFov = null;
-    const pinchDistance = (touches) => {
-      const dx = touches[0].clientX - touches[1].clientX;
-      const dy = touches[0].clientY - touches[1].clientY;
-      return Math.hypot(dx, dy);
-    };
-
-    this.touchStartHandler = (event) => {
-      if (event.touches.length === 2) {
-        pinchStartDist = pinchDistance(event.touches);
-        pinchStartFov = this.camera.fov;
-        // OrbitControls tracks touches via the Pointer Events API, which fires
-        // *before* this touchstart handler runs. Its single-finger touchstart
-        // (the instant the first of the two fingers landed) already put it in
-        // TOUCH_ROTATE state. Because enableZoom/enablePan are both false here,
-        // OrbitControls' own two-finger handler (handleTouchStartDollyPan)
-        // bails out early and never overwrites that state -- so it stays in
-        // TOUCH_ROTATE and keeps orbiting the camera toward the midpoint of
-        // the two fingers for the whole pinch gesture. Explicitly disabling
-        // rotate for the duration of the pinch stops that leftover rotation
-        // while leaving normal one-finger look-around untouched.
-        this.controls.enableRotate = false;
-      }
-    };
-    this.touchMoveHandler = (event) => {
-      if (event.touches.length !== 2 || pinchStartDist === null) return;
-      // Stop the browser also treating this as a native page pinch-zoom
-      // while it's driving the camera fov instead.
-      event.preventDefault();
-      const dist = pinchDistance(event.touches);
-      // Fingers moving apart (dist > start) zooms IN, i.e. narrows the fov
-      // -- same direction convention as wheelHandler's deltaY < 0 case.
-      const fov = pinchStartFov - (dist - pinchStartDist) * 0.15;
-      this.camera.fov = Math.min(this.camera.maxFov, Math.max(this.camera.minFov, fov));
-      this.camera.updateProjectionMatrix();
-    };
-    this.touchEndHandler = (event) => {
-      if (event.touches.length < 2) {
-        pinchStartDist = null;
-        // Re-enable rotate once we're back down to one finger (or zero) so
-        // normal single-finger look-around keeps working after a pinch.
-        this.controls.enableRotate = true;
-      }
-    };
-
-    const pinchTarget = this.renderer.domElement;
-    pinchTarget.addEventListener('touchstart', this.touchStartHandler, { passive: true });
-    pinchTarget.addEventListener('touchmove', this.touchMoveHandler, { passive: false });
-    pinchTarget.addEventListener('touchend', this.touchEndHandler, { passive: true });
-    pinchTarget.addEventListener('touchcancel', this.touchEndHandler, { passive: true });
 
     this.controls.autoRotate = !this.userStoppedAutoRotate;
     this.controls.autoRotateSpeed = 0.9;
