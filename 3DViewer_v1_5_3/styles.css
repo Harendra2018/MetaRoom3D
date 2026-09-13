@@ -731,7 +731,7 @@ canvas {
 
 .carousel-container {
   width: calc(100vw - 120px);
-  max-width: 1200px;
+  max-width: 100%;
   overflow: hidden;
   border-radius: 10px;
   
