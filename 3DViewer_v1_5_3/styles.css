@@ -679,9 +679,11 @@ canvas {
 /* Updated Panorama Carousel Styles - Carousel without expand button */
 .pano-carousel {
   position: absolute;
-  bottom: 4px; /* Moved up to make room for external expand button */
+  bottom: 4px;
   left: 50%;
   transform: translateX(-50%);
+  width: calc(100vw - 40px);   /* add this */
+  max-width: 100%;            /* a bit more than carousel-container's 1200px to cover padding/arrows */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -690,8 +692,7 @@ canvas {
   backdrop-filter: blur(10px);
   border-radius: 15px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  padding-left: 10px; /* Add left gap to balance with right side */
-  /* Remove min-height since expand button is external now */
+  padding-left: 10px;
 }
 
 /* External Expand Button Styles - Now positioned outside the carousel */
