@@ -125,7 +125,7 @@
     }
     .hero .hero-content {
       position: absolute;
-      top: 87%;
+      top: 90%;
       left: 50%;
       transform: translate(-50%, -100%);
       z-index: 4;
@@ -193,7 +193,7 @@
         <div class="hero-content">
           <h1 class="slide-title">The Complete Toolkit<br>for 3D Virtual Tours</h1>
           <p class="slide-subtitle">MetaRoom3D turns your photos into immersive 3D experiences.</p>
-          
+          <a href="#downloads" class="cta-button hero-download-btn">Download Now</a>
         </div>
       </div>
     </section>
@@ -456,6 +456,29 @@
         </div>
       </div>
     </section>
+
+    <!-- Downloads Section -->
+    <section id="downloads" class="downloads-section">
+      <div class="container">
+        <div class="pricing-eyebrow">Get Started</div>
+        <h2>Download Now</h2>
+        <p class="downloads-subtitle">Grab the installer for Windows, then activate it with a license key — the Personal plan includes a 7-day free trial with no credit card required.</p>
+        <div class="downloads-grid">
+          <div class="download-card">
+            <h3>Room Layout Editor 2026</h3>
+            <p>Build accurate 3D dollhouse room layouts from your stitched panoramas.</p>
+            <span class="download-meta">Windows installer &middot; ~600 MB</span>
+            <button type="button" class="cta-button" onclick="openDownloadModal('roomlayout')">Download Now</button>
+          </div>
+          <div class="download-card">
+            <h3>Sphere</h3>
+            <p>Turn bracketed chrome-ball photos into scene-accurate HDRI environment maps.</p>
+            <span class="download-meta">Windows installer &middot; ~85 MB</span>
+            <button type="button" class="cta-button" onclick="openDownloadModal('sphere')">Download Now</button>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
   <!-- /scene-wrap -->
 
@@ -472,12 +495,12 @@
             <p><strong>Phone:</strong> +94 (077) 821-3383</p>
           </div>
         </div>
-        <form class="contact-form" action="https://api.web3forms.com/submit" method="POST">
-          <input type="hidden" name="access_key" value="b572fc19-3957-4602-8047-f66facb3f23e">
-          <input type="text" name="name" placeholder="Your Name" required>
-          <input type="email" name="email" placeholder="Your Email" required>
-          <textarea name="message" placeholder="Your Message" required></textarea>
-          <button type="submit" class="cta-button">Send Message</button>
+        <form class="contact-form" id="contactForm">
+          <input type="text" id="contactName" name="name" placeholder="Your Name" required>
+          <input type="email" id="contactEmail" name="email" placeholder="Your Email" required>
+          <textarea id="contactMessage" name="message" placeholder="Your Message" required></textarea>
+          <button type="submit" class="cta-button" id="contactSubmitBtn">Send Message</button>
+          <p id="contactStatus" class="download-status"></p>
         </form>
       </div>
     </div>
@@ -515,6 +538,22 @@
         <span class="close-modal" onclick="close3DTour()">&times;</span>
       </div>
       <iframe id="tourFrame" src="" frameborder="0"></iframe>
+    </div>
+  </div>
+
+  <!-- Download Modal (email capture) -->
+  <div id="downloadModal" class="modal download-modal">
+    <div class="modal-content">
+      <span class="close-modal" onclick="closeDownloadModal()">&times;</span>
+      <div class="download-modal-box">
+        <h3 id="downloadModalTitle">Download MetaRoom3D</h3>
+        <p id="downloadModalSub">Enter your email and the download will start right away.</p>
+        <form id="downloadForm">
+          <input type="email" id="downloadEmail" name="email" placeholder="you@example.com" required>
+          <button type="submit" class="cta-button" id="downloadSubmitBtn">Download Now</button>
+        </form>
+        <p id="downloadStatus" class="download-status"></p>
+      </div>
     </div>
   </div>
 

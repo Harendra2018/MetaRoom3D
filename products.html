@@ -304,6 +304,7 @@
       color: #A7B2D6;
       font-size: 1rem;
       line-height: 1.7;
+      margin-bottom: 22px;
     }
 
     .product-hero {
@@ -487,6 +488,7 @@
         <span class="product-badge">Paid · Subscription</span>
         <h2>MetaRoom3D Room Layout Editor</h2>
         <p class="product-desc">Build accurate 3D dollhouse room layouts from your stitched panoramas, with automation that scales from a single manual build up to a fully automated batch pipeline.</p>
+        <button type="button" class="cta-button" onclick="openDownloadModal('roomlayout')">Download Now</button>
       </div>
       <p class="editions-intro">
         The Room Layout Editor is the same app on every plan — what changes is which
@@ -652,6 +654,7 @@
           <h2>MetaRoom3D Sphere</h2>
           <p class="product-tagline">Chrome-Ball HDRI Stitcher</p>
           <p class="product-desc">Turns bracketed chrome-ball photographs into scene-accurate HDRI environment maps — HDR merge, spherical projection, seam correction, and tripod removal, without the manual retouch pass that the classic VFX workflow requires.</p>
+          <button type="button" class="cta-button" onclick="openDownloadModal('sphere')">Download Now</button>
         </div>
 
         <p class="editions-intro">
@@ -944,6 +947,22 @@
       </div>
     </div>
   </footer>
+
+  <!-- Download Modal (email capture) -->
+  <div id="downloadModal" class="modal download-modal">
+    <div class="modal-content">
+      <span class="close-modal" onclick="closeDownloadModal()">&times;</span>
+      <div class="download-modal-box">
+        <h3 id="downloadModalTitle">Download MetaRoom3D</h3>
+        <p id="downloadModalSub">Enter your email and the download will start right away.</p>
+        <form id="downloadForm">
+          <input type="email" id="downloadEmail" name="email" placeholder="you@example.com" required>
+          <button type="submit" class="cta-button" id="downloadSubmitBtn">Download Now</button>
+        </form>
+        <p id="downloadStatus" class="download-status"></p>
+      </div>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>

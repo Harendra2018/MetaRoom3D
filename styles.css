@@ -2634,3 +2634,155 @@ ul {
         font-size: 1.5rem;
     }
 }
+
+/* ==========================================================================
+   Download Now — hero/downloads section buttons + email-capture modal
+   ========================================================================== */
+
+.downloads-section {
+    padding: 100px 0;
+    background: #0b1220;
+    text-align: center;
+}
+
+.downloads-section .pricing-eyebrow {
+    color: #00F2FF;
+}
+
+.downloads-section h2 {
+    color: #ffffff;
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+}
+
+.downloads-subtitle {
+    color: #cbd5e1;
+    max-width: 620px;
+    margin: 0 auto 48px;
+    font-size: 1.05rem;
+}
+
+.downloads-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.download-card {
+    background: #121b2e;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 32px 28px;
+    text-align: left;
+}
+
+.download-card h3 {
+    color: #ffffff;
+    font-size: 1.3rem;
+    margin-bottom: 8px;
+}
+
+.download-card p {
+    color: #94a3b8;
+    font-size: 0.95rem;
+    margin-bottom: 20px;
+}
+
+.download-card .download-meta {
+    display: block;
+    color: #64748b;
+    font-size: 0.82rem;
+    margin-bottom: 18px;
+}
+
+.download-card .cta-button {
+    width: 100%;
+    text-align: center;
+}
+
+.hero-download-btn {
+    margin-top: 28px;
+}
+
+/* Email-capture modal (distinct from the full-bleed tour/video modal) */
+.download-modal .modal-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.download-modal-box {
+    background: #121b2e;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 40px 36px;
+    max-width: 420px;
+    width: 100%;
+    text-align: left;
+}
+
+.download-modal-box h3 {
+    color: #ffffff;
+    font-size: 1.4rem;
+    margin-bottom: 12px;
+}
+
+.download-modal-box p {
+    color: #94a3b8;
+    font-size: 0.92rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+.download-modal-box p a {
+    color: #00F2FF;
+}
+
+#downloadForm {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+#downloadForm input[type="email"] {
+    padding: 14px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: #0b1220;
+    color: #ffffff;
+    font-size: 15px;
+    outline: none;
+}
+
+#downloadForm input[type="email"]:focus {
+    border-color: #00F2FF;
+}
+
+#downloadForm button[disabled] {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.download-status {
+    margin-top: 14px;
+    font-size: 0.88rem;
+    color: #94a3b8;
+    min-height: 1.2em;
+}
+
+.download-status.success {
+    color: #4ade80;
+}
+
+.download-status.error {
+    color: #f87171;
+}
+
+@media (max-width: 480px) {
+    .download-modal-box {
+        padding: 28px 22px;
+    }
+}
+

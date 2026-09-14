@@ -413,3 +413,171 @@ window.onclick = function(event) {
         close3DTour();
     }
 }
+
+// ==========================================================================
+// Download Now — email capture -> admin notification (Web3Forms) -> installer
+// ==========================================================================
+// Uses the same Web3Forms access key as the Contact form (index.html), so
+// submissions land in the same inbox (metaroom3d@gmail.com) with no extra
+// account or backend needed. See README-downloads.md for setup notes.
+const DOWNLOADS = {
+  roomlayout: {
+    label: 'MetaRoom3D Room Layout Editor 2026',
+    size: '~93 MB',
+    // Hosted on Cloudflare R2 (custom domain), not GitHub Releases.
+    url: 'https://dl.metaroom3d.com/MetaRoom3D_RoomLayoutEditor_Setup_2026.exe'
+  },
+  sphere: {
+    label: 'MetaRoom3D Sphere',
+    size: '~22 MB',
+    // Hosted on Cloudflare R2 (custom domain), not GitHub Releases.
+    url: 'https://dl.metaroom3d.com/MetaRoom3D_Sphere_Setup_1.0.0.exe'
+  }
+};
+
+const WEB3FORMS_KEY = '617b198d-8043-49f2-badf-cc7175946359'; // same key the Contact form uses
+
+let pendingDownloadKey = null;
+
+function openDownloadModal(productKey) {
+  const product = DOWNLOADS[productKey];
+  if (!product) return;
+  pendingDownloadKey = productKey;
+
+  const modal = document.getElementById('downloadModal');
+  const title = document.getElementById('downloadModalTitle');
+  const sub = document.getElementById('downloadModalSub');
+  const status = document.getElementById('downloadStatus');
+  const submitBtn = document.getElementById('downloadSubmitBtn');
+  const emailInput = document.getElementById('downloadEmail');
+
+  if (title) title.textContent = 'Download ' + product.label;
+  if (sub) {
+    sub.textContent = product.size + ' \u2014 enter your email and the download will start right away. ' +
+      'Every install needs an activated license key (7-day free trial available on the Products page).';
+  }
+  if (status) { status.textContent = ''; status.className = 'download-status'; }
+  if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Download Now'; }
+  if (emailInput) emailInput.value = '';
+  if (modal) modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDownloadModal() {
+  const modal = document.getElementById('downloadModal');
+  if (modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const form = document.getElementById('downloadForm');
+  if (!form) return;
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const product = DOWNLOADS[pendingDownloadKey];
+    if (!product) return;
+
+    const emailInput = document.getElementById('downloadEmail');
+    const status = document.getElementById('downloadStatus');
+    const submitBtn = document.getElementById('downloadSubmitBtn');
+    const email = (emailInput.value || '').trim();
+    if (!email) return;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Preparing download\u2026';
+    status.textContent = '';
+    status.className = 'download-status';
+
+    try {
+      await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          access_key: WEB3FORMS_KEY,
+          subject: 'Download: ' + product.label,
+          from_name: 'MetaRoom3D Downloads',
+          email: email, // downloader's address -> becomes the reply-to on the notification
+          message: email + ' just started downloading ' + product.label + '.'
+        })
+      });
+    } catch (err) {
+      // Don't let a notification hiccup block the customer's download.
+      console.error('Download notification failed:', err);
+    }
+
+    status.textContent = 'Thanks! Your download is starting\u2026';
+    status.className = 'download-status success';
+    window.location.href = product.url;
+
+    setTimeout(closeDownloadModal, 1500);
+  });
+});
+
+// Close the download modal when clicking outside its content
+window.addEventListener('click', function (event) {
+  const modal = document.getElementById('downloadModal');
+  if (modal && event.target === modal) {
+    closeDownloadModal();
+  }
+});
+
+// ==========================================================================
+// Contact form — same fetch()-based Web3Forms pattern as the Download modal.
+// No `action`/navigation: submit is caught here, sent via fetch, and the
+// page shows an inline success/error message instead of leaving the site.
+// ==========================================================================
+document.addEventListener('DOMContentLoaded', function () {
+  const form = document.getElementById('contactForm');
+  if (!form) return;
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const nameInput = document.getElementById('contactName');
+    const emailInput = document.getElementById('contactEmail');
+    const messageInput = document.getElementById('contactMessage');
+    const status = document.getElementById('contactStatus');
+    const submitBtn = document.getElementById('contactSubmitBtn');
+
+    const name = (nameInput.value || '').trim();
+    const email = (emailInput.value || '').trim();
+    const message = (messageInput.value || '').trim();
+    if (!name || !email || !message) return;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending\u2026';
+    status.textContent = '';
+    status.className = 'download-status';
+
+    try {
+      const response = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          access_key: WEB3FORMS_KEY, // same key used for download notifications
+          subject: 'New Contact Message - MetaRoom3D',
+          from_name: name,
+          email: email, // sender's address -> becomes the reply-to on the notification
+          message: message
+        })
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        status.textContent = 'Thanks! Your message has been sent \u2014 we\u2019ll get back to you soon.';
+        status.className = 'download-status success';
+        form.reset();
+      } else {
+        throw new Error(result.message || 'Submission failed');
+      }
+    } catch (err) {
+      console.error('Contact form submission failed:', err);
+      status.textContent = 'Something went wrong sending your message. Please try again or email metaroom3d@gmail.com directly.';
+      status.className = 'download-status error';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Send Message';
+    }
+  });
+});
