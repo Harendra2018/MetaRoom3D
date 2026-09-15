@@ -33,14 +33,53 @@
 
   <style>
     .products-hero-image {
+      position: relative;
       background: #030A1C;
       line-height: 0;
+      overflow: hidden;
     }
 
     .products-hero-image img {
       display: block;
       width: 100%;
       height: auto;
+    }
+
+    .products-hero-image .hero-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background: linear-gradient(180deg, rgba(3, 10, 28, 0.05) 0%, rgba(3, 10, 28, 0.35) 55%, rgba(3, 10, 28, 0.6) 100%);
+      pointer-events: none;
+    }
+
+    .products-hero-image .hero-content {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+      width: min(90%, 700px);
+      text-align: center;
+      line-height: normal;
+    }
+
+    .products-hero-image .slide-title {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    .products-hero-image .slide-subtitle {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 400;
+      color: #ffffff;
+    }
+
+    @media (max-width: 768px) {
+      .products-hero-image .hero-content {
+        width: 92%;
+      }
     }
 
     .editions-section {
@@ -464,7 +503,15 @@
 
   <!-- Hero -->
   <section class="products-hero-image">
-    <img src="assets/products-hero.png" alt="MetaRoom3D — Powerful Tools. Immersive Experiences. A complete suite of 3D visualization and spatial intelligence products: 3D Visualization, Panoramas, Room & Floor Plans, AI Alignment.">
+    <picture>
+      <source media="(max-width: 768px)" srcset="assets/products_m.jpg">
+      <img src="assets/products-hero.jpg" alt="MetaRoom3D — Powerful Tools. Immersive Experiences. A complete suite of 3D visualization and spatial intelligence products: 3D Visualization, Panoramas, Room & Floor Plans, AI Alignment.">
+    </picture>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <h1 class="slide-title">Powerful Tools. Immersive Experiences.</h1>
+      <p class="slide-subtitle">A complete suite of 3D visualization and spatial intelligence products for every need.</p>
+    </div>
   </section>
 
   <section class="editions-section">

@@ -787,6 +787,19 @@ ul {
   border-radius: 12px;
 }
 
+.feature-icon {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 12px;
+  color: #00F2FF;
+}
+
+.feature-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .feature-dark h3 {
   margin-bottom: 8px;
   color: #EAF0FF;
