@@ -141,15 +141,48 @@ void SetupLights()
 /**
  * Sample a random point on a random light
  */
-vec3 SampleLight(out int lightIndex, out vec3 lightNormal)
+vec3 SampleLight(out int lightIndex, out vec3 lightNormal, out float lightSelectProb)
 {
     if (numActiveLights == 0) {
         lightIndex = -1;
+        lightSelectProb = 1.0;
         return vec3(0);
     }
     
-    lightIndex = int(floor(rng() * float(numActiveLights)));
-    lightIndex = clamp(lightIndex, 0, numActiveLights - 1);
+    // Pick a light proportionally to its power (emission luminance * area) instead of uniformly.
+    // The estimate is still unbiased because the caller divides by lightSelectProb.
+    float lightWeights[MAX_LIGHTS];
+    float totalWeight = 0.0;
+    for (int i = 0; i < MAX_LIGHTS; i++)
+    {
+        float w = 0.0;
+        if (i < numActiveLights)
+        {
+            LightData L = lights[i];
+            float lum = dot(L.emission, vec3(0.2126, 0.7152, 0.0722));
+            float area = 1.0;
+            if (L.type == LIGHT_TYPE_RECT)
+                area = length(cross(L.v1 - L.v0, L.v3 - L.v0));
+            else if (L.type == LIGHT_TYPE_DISK)
+                area = PI * L.radius * L.radius;
+            else
+                area = 4.0 * PI * L.radius * L.radius;
+            w = max(lum * area, 1e-6);
+        }
+        lightWeights[i] = w;
+        totalWeight += w;
+    }
+
+    float pick = rng() * totalWeight;
+    lightIndex = numActiveLights - 1;
+    float acc = 0.0;
+    for (int i = 0; i < MAX_LIGHTS; i++)
+    {
+        if (i >= numActiveLights) break;
+        acc += lightWeights[i];
+        if (pick < acc) { lightIndex = i; break; }
+    }
+    lightSelectProb = lightWeights[lightIndex] / totalWeight;
     
     LightData light = lights[lightIndex];
     lightNormal = vec3(0, 1, 0);
@@ -525,13 +558,13 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 	// Sample from a random light (any type)
 	int selectedLightIndex;
 	vec3 lightNormal;
-	vec3 randPointOnLight = SampleLight(selectedLightIndex, lightNormal);
+	float lightSelectionProbability;
+	vec3 randPointOnLight = SampleLight(selectedLightIndex, lightNormal, lightSelectionProbability);
 	vec3 lightHitEmission = lights[selectedLightIndex].emission;
 	vec3 lightHitPos = randPointOnLight;
 	
 	// Account for selecting one light among many (probability adjustment)
 	// Fixed: more robust light selection with emission scaling to reduce fireflies
-	float lightSelectionProbability = 1.0 / float(numActiveLights);
 	float emissionScale = min(lightHitEmission.r, max(lightHitEmission.g, lightHitEmission.b));
 	lightHitEmission /= (lightSelectionProbability * (1.0 + emissionScale * 0.1));
 	
@@ -663,46 +696,6 @@ vec3 CalculateRadiance( out vec3 objectNormal, out vec3 objectColor, out float o
 		{
 			vec3 shadowTransmission = vec3(1.0);
 			bool hitOpaqueSurface = false;
-			
-			if (t < INFINITY) {
-				vec3 savedRayOrigin = rayOrigin;
-				vec3 savedRayDirection = rayDirection;
-				
-				rayOrigin = x + nl * epsIntersect;
-				rayDirection = normalize(lightHitPos - x);
-				float distanceToLight = distance(x, lightHitPos);
-				
-				// Firefly reduction: clamp maximum shadow ray distance
-				distanceToLight = min(distanceToLight, 1000.0);
-				
-				// Firefly reduction: reduced transparent bounces for stability
-				int maxTransparentBounces = 2;
-				for (int i = 0; i < maxTransparentBounces; i++) {
-					float shadowT = SceneIntersect(TRUE);
-					
-					if (shadowT < distanceToLight && shadowT < INFINITY) {
-						if (hitOpacity < 0.99) {
-							float transmission = 1.0 - (hitOpacity * 0.8);
-							vec3 colorTint = mix(vec3(1.0), hitColor, hitOpacity * 0.5);
-							// Firefly reduction: clamp minimum transmission
-							shadowTransmission *= colorTint * max(transmission, 0.1);
-							
-							vec3 transparentHitPoint = rayOrigin + rayDirection * shadowT;
-							rayOrigin = transparentHitPoint + rayDirection * epsIntersect;
-							distanceToLight = distance(rayOrigin, lightHitPos);
-							distanceToLight = min(distanceToLight, 1000.0);
-						} else {
-							hitOpaqueSurface = true;
-							break;
-						}
-					} else {
-						break;
-					}
-				}
-				
-				rayOrigin = savedRayOrigin;
-				rayDirection = savedRayDirection;
-			}
 			
 			// Firefly reduction: better visibility threshold scaled by distance
 			float visibilityThreshold = 0.01 + t * 0.001;
