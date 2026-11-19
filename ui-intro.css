@@ -1,0 +1,111 @@
+/* MetaRoom3D — interactive software intro (crest video -> zoom-out -> Frame 24 -> clickable UI) */
+.ui-intro{padding:56px 0 24px}
+.ui-scroll{max-width:1400px;margin:0 auto}
+.ui-stage{position:relative;width:100%;aspect-ratio:2000/849;overflow:hidden;
+  transition:aspect-ratio .9s cubic-bezier(.4,0,.2,1)}
+.ui-stage.is-live{aspect-ratio:1920/1040}
+
+/* opening clip (first + end part of the promo video), fades out before the crest */
+.ui-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 30%;pointer-events:none;background:#030A1C}
+.ui-stage.is-live .ui-bg{opacity:0;transition:opacity .7s ease}
+
+/* intro layers (all share one camera so the live crest and the baked crest stay aligned) */
+.ui-cam{position:absolute;inset:0;transform-origin:0 0;will-change:transform;transition:opacity .7s ease}
+.ui-stage.is-live .ui-cam{opacity:0;pointer-events:none}
+.ui-f24{position:absolute;inset:0;width:100%;height:100%;display:block;user-select:none;
+  -webkit-mask-image:radial-gradient(circle at 27.2% 38.2%,#000 calc(var(--r,0px) - var(--f,160px)),transparent var(--r,0px));
+          mask-image:radial-gradient(circle at 27.2% 38.2%,#000 calc(var(--r,0px) - var(--f,160px)),transparent var(--r,0px))}
+/* video placed so its frontal crest sits exactly on the crest baked into Frame 24 */
+.ui-crest{position:absolute;left:20%;top:8.72%;width:14.4%;height:60.3%;object-fit:contain;pointer-events:none}
+.ui-ring{position:absolute;left:27.2%;top:38.2%;width:0;height:0;border-radius:50%;
+  transform:translate(-50%,-50%);border:2px solid rgba(0,242,255,.55);
+  box-shadow:0 0 28px rgba(0,242,255,.35);opacity:0;pointer-events:none}
+
+/* interactive window */
+.ui-win{position:absolute;left:13.4%;top:4.77%;width:70.9%;aspect-ratio:1920/1040;
+  border-radius:14px;overflow:hidden;background:#0a0d16;opacity:0;pointer-events:none;
+  box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08);
+  transition:opacity .8s ease,left .9s cubic-bezier(.4,0,.2,1),top .9s cubic-bezier(.4,0,.2,1),width .9s cubic-bezier(.4,0,.2,1)}
+.ui-stage.is-live .ui-win{left:0;top:0;width:100%;opacity:1;pointer-events:auto}
+.ui-shot{position:absolute;inset:0;width:100%;height:100%;display:block;user-select:none}
+.ui-sel,.ui-built{opacity:0;transition:opacity .6s ease}
+.ui-win[data-sel="1"] .ui-sel{opacity:1}
+.ui-win[data-built="1"] .ui-built{opacity:1}
+.ui-ws{position:absolute;inset:0}
+.ui-win:not([data-view="ws"]) .ui-ws .hs{pointer-events:none}
+
+.ui-scrim{position:absolute;inset:0;background:rgba(3,10,28,.62);opacity:0;pointer-events:none;transition:opacity .3s}
+.ui-win:not([data-view="ws"]) .ui-scrim{opacity:1;pointer-events:auto}
+
+.ui-dlg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.95);
+  opacity:0;visibility:hidden;border-radius:6px;overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,.65),0 0 0 1px rgba(255,255,255,.1);
+  transition:opacity .25s,transform .25s,visibility 0s .25s}
+.ui-dlg img{display:block;width:100%;height:auto;user-select:none}
+.dlg-folder{width:31.72%}.dlg-details{width:23.96%}.dlg-editor{width:84.3%}
+.ui-win[data-view="folder"] .dlg-folder,
+.ui-win[data-view="details"] .dlg-details,
+.ui-win[data-view="editor"] .dlg-editor{opacity:1;visibility:visible;transform:translate(-50%,-50%) scale(1);transition:opacity .25s,transform .25s,visibility 0s}
+
+/* step 3 (pick a panorama) + post-build transform tools */
+.hs-tool,.hs-field{display:none}
+.ui-win[data-built="1"] .hs-tool,.ui-win[data-built="1"] .hs-field{display:block}
+.ui-win[data-built="1"] .hs-thumb{display:none}
+.hs-thumb{border-radius:10px}
+.hs.is-active{background:rgba(0,242,255,.14);box-shadow:0 0 0 2px rgba(0,242,255,.9),0 0 16px rgba(0,242,255,.4)}
+
+/* tooltip that follows the hovered tool */
+.ui-tt{position:absolute;left:0;top:0;z-index:6;width:max-content;max-width:min(340px,80%);
+  padding:9px 13px;border-radius:8px;background:rgba(3,10,28,.96);color:#e8fbff;
+  border:1px solid rgba(0,242,255,.5);box-shadow:0 8px 24px rgba(0,0,0,.55);
+  font:500 12.5px/1.4 'Montserrat',sans-serif;opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .15s,visibility 0s .15s}
+.ui-tt.show{opacity:1;visibility:visible;transition:opacity .15s,visibility 0s}
+.ui-tt b{display:block;color:#00F2FF;font-weight:700;letter-spacing:.02em;margin-bottom:2px}
+
+/* hotspots */
+.hs{position:absolute;padding:0;border:0;background:transparent;border-radius:6px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;transition:box-shadow .2s,background .2s}
+.hs:hover,.hs:focus-visible{outline:0;background:rgba(0,242,255,.1);box-shadow:0 0 0 2px rgba(0,242,255,.75),0 0 18px rgba(0,242,255,.35)}
+.hs.is-next{animation:uiPulse 1.7s ease-out infinite}
+@keyframes uiPulse{
+  0%{box-shadow:0 0 0 0 rgba(0,242,255,.85)}
+  70%{box-shadow:0 0 0 14px rgba(0,242,255,0)}
+  100%{box-shadow:0 0 0 0 rgba(0,242,255,0)}}
+
+.ui-tip{position:absolute;left:50%;bottom:3%;transform:translate(-50%,8px);max-width:80%;
+  padding:8px 16px;border-radius:999px;background:rgba(3,10,28,.92);color:#e8fbff;
+  border:1px solid rgba(0,242,255,.45);font:500 13px/1.3 'Montserrat',sans-serif;
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:5;text-align:center}
+.ui-tip.show{opacity:1;transform:translate(-50%,0)}
+
+/* caption + controls */
+.ui-bar{max-width:1400px;margin:14px auto 0;display:flex;gap:16px;align-items:center;justify-content:space-between}
+.ui-cap{margin:0;color:#9fdcf0;font:500 14px/1.45 'Montserrat',sans-serif;min-height:1.45em}
+.ui-btns{display:flex;gap:8px;flex-shrink:0}
+.ui-btn{background:transparent;color:#00F2FF;border:1px solid rgba(0,242,255,.45);border-radius:999px;
+  padding:7px 16px;font:600 12px 'Montserrat',sans-serif;letter-spacing:.04em;cursor:pointer;transition:background .2s}
+.ui-btn:hover{background:rgba(0,242,255,.12)}
+.ui-btn[hidden]{display:none}
+
+@media (max-width:760px){
+  .ui-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .ui-stage.is-live{width:820px;max-width:none}
+  .ui-bar{flex-direction:column;align-items:flex-start}
+  .ui-tip{font-size:12px}
+}
+@media (prefers-reduced-motion:reduce){
+  .ui-stage,.ui-win,.ui-cam{transition:none}
+  .hs.is-next{animation:none;box-shadow:0 0 0 2px rgba(0,242,255,.85)}
+}
+
+/* tooltip extras: crest icon (Auto Build) and preview image (AI Align) */
+.ui-tt b{display:flex;align-items:center;gap:8px}
+.ui-tt .ui-tt-ic{width:22px;height:22px;flex:none;display:block}
+.ui-tt.has-img{width:320px}
+.ui-tt .ui-tt-img{display:block;width:100%;height:auto;aspect-ratio:1164/704;margin-top:8px;border-radius:6px;border:1px solid rgba(0,242,255,.25)}
+
+/* editor: original (levelled) screenshot fades in after Click-to-level */
+.dlg-editor{position:absolute}
+.ui-dlg .ed-aligned{position:absolute;inset:0;height:100%;opacity:0;pointer-events:none;transition:opacity .6s ease}
+.ui-win[data-lvl="1"] .ed-aligned{opacity:1}

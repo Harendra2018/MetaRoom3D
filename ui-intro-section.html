@@ -1,0 +1,89 @@
+<section class="ui-intro" id="ui-intro" aria-label="MetaRoom3D Room Layout Editor, interactive preview">
+      <noscript><style>.ui-f24{-webkit-mask-image:none!important;mask-image:none!important}</style></noscript>
+      <div class="container">
+        <div class="ui-scroll">
+          <div class="ui-stage" id="uiStage">
+            <video class="ui-bg" id="uiBg" muted playsinline preload="auto" aria-hidden="true" tabindex="-1">
+              <source src="assets/ui-intro/intro-bg.webm" type="video/webm">
+              <source src="assets/ui-intro/intro-bg.mp4" type="video/mp4">
+            </video>
+            <div class="ui-cam" id="uiCam">
+              <img class="ui-f24" id="uiF24" src="assets/ui-intro/frame24.png" alt="MetaRoom3D Room Layout Editor, Version 2026" width="2000" height="849">
+              <div class="ui-ring" id="uiRing" aria-hidden="true"></div>
+              <video class="ui-crest" id="uiCrest" muted playsinline preload="auto" aria-hidden="true" tabindex="-1">
+                <source src="assets/logo-hero.webm" type="video/webm">
+                <source src="assets/logo-hero.mp4" type="video/mp4">
+              </video>
+            </div>
+
+            <div class="ui-win" id="uiWin" data-view="ws" data-built="0" data-sel="0" data-lvl="0">
+              <img class="ui-shot" src="assets/ui-intro/ws-empty.jpg" alt="MetaRoom3D workspace" draggable="false">
+              <img class="ui-shot ui-sel" src="assets/ui-intro/ws-select.jpg" alt="" aria-hidden="true" draggable="false">
+              <img class="ui-shot ui-built" src="assets/ui-intro/ws-tools.jpg" alt="" aria-hidden="true" draggable="false">
+
+              <div class="ui-ws">
+                <button type="button" class="hs " data-act="open" data-id="open" aria-label="Open panorama folder" style="left:1.25%;top:5.58%;width:2.92%;height:5.58%"></button>
+                <button type="button" class="hs " data-act="editor" data-id="editor" aria-label="Panorama Room Editor" style="left:1.25%;top:12.31%;width:18.65%;height:6.92%"></button>
+                <!-- step 3: choose a panorama from the list -->
+                <button type="button" class="hs hs-thumb" data-act="thumb" data-pick="1" data-id="thumb" aria-label="Select panorama: Primary Bathroom" style="left:1.35%;top:42.31%;width:17.86%;height:17.98%"></button>
+                <button type="button" class="hs hs-thumb" data-act="thumb" aria-label="Select panorama: Kitchen 1" style="left:1.35%;top:60.58%;width:17.86%;height:18.08%"></button>
+                <button type="button" class="hs hs-thumb" data-act="thumb" aria-label="Select panorama: Living Room" style="left:1.35%;top:78.85%;width:17.86%;height:18.08%"></button>
+                <!-- upgrade tools: AI Align, Auto Build (X), Match All Ceilings (Y), Auto Add Hotspots (Z) -->
+                <button type="button" class="hs" data-act="field" data-tt-title="AI Align" data-tt="Automatically levels every panorama with AI (roll and tilt). A progress dialog shows each panorama; hit Skip if one already looks level." data-tt-img="assets/ui-intro/ai-align.jpg" aria-label="AI Align" style="left:1.2%;top:20.7%;width:4.5%;height:4.9%"></button>
+                <button type="button" class="hs" data-act="field" data-tt-title="Auto Build" data-tt="Batch-builds rooms from all your panoramas in one go, instead of opening each panorama by hand." aria-label="Auto Build" style="left:5.94%;top:20.7%;width:4.5%;height:4.9%"></button>
+                <button type="button" class="hs" data-act="field" data-tt-title="Match All Ceilings" data-tt="Sets every room to the ceiling height of the selected room, so rooms with different ceiling heights line up." aria-label="Match All Ceilings" style="left:10.67%;top:20.7%;width:4.5%;height:4.9%"></button>
+                <button type="button" class="hs" data-act="field" data-tt-title="Auto Add Hotspots" data-tt="Automatically places the navigation hotspots between your rooms." data-tt-icon="assets/crest_white.svg" aria-label="Auto Add Hotspots" style="left:15.41%;top:20.7%;width:4.5%;height:4.9%"></button>
+                <!-- after Build: transformation tools with tooltips -->
+                <button type="button" class="hs hs-tool" data-act="tool" data-group="tools" data-tt-title="Move" data-tt="Drag the selected room to reposition it on the floor plan." aria-label="Move tool" style="left:1.77%;top:46.15%;width:3.26%;height:4.87%"></button>
+                <button type="button" class="hs hs-tool" data-act="tool" data-group="tools" data-tt-title="Rotate" data-tt="Turn the room around its vertical axis. Step size comes from Rot Step." aria-label="Rotate tool" style="left:5.40%;top:46.15%;width:3.21%;height:4.87%"></button>
+                <button type="button" class="hs hs-tool" data-act="tool" data-group="tools" data-tt-title="Fast Move" data-tt="Click, then click a floor position to move the room there." aria-label="Fast Move tool" style="left:8.98%;top:46.15%;width:3.18%;height:4.87%"></button>
+                <button type="button" class="hs hs-tool" data-act="tool" data-group="tools" data-tt-title="Interactive Stitch Face" data-tt="Click faces of two neighbouring rooms to stitch them together so their walls line up." aria-label="Interactive Stitch Face tool" style="left:12.53%;top:46.15%;width:3.23%;height:4.87%"></button>
+                <button type="button" class="hs hs-tool" data-act="tool" data-group="tools" data-tt-title="Get Ceiling Reference" data-tt="Click the ceiling to pick a reference height. Use it with Match All Ceilings." aria-label="Get Ceiling Reference tool" style="left:16.09%;top:46.15%;width:3.26%;height:4.87%"></button>
+                <button type="button" class="hs hs-field" data-act="field" data-tt-title="Speed" data-tt="How fast the active tool responds to mouse movement." aria-label="Speed" style="left:1.77%;top:51.86%;width:17.59%;height:2.24%"></button>
+                <button type="button" class="hs hs-field" data-act="field" data-tt-title="Rot Step (°)" data-tt="Degrees the room turns per rotate step." aria-label="Rot Step (°)" style="left:1.77%;top:54.90%;width:17.59%;height:2.24%"></button>
+                <button type="button" class="hs hs-field" data-act="field" data-tt-title="Offset Y (m)" data-tt="Height of the room above the floor grid, in metres." aria-label="Offset Y (m)" style="left:1.77%;top:57.98%;width:17.59%;height:2.28%"></button>
+              </div>
+
+              <div class="ui-scrim" data-act="dismiss"></div>
+
+              <div class="ui-dlg dlg-folder" role="dialog" aria-label="Select folder containing equirectangular panoramas">
+                <img src="assets/ui-intro/dlg-folder.jpg" alt="Folder picker dialog" draggable="false">
+                <button type="button" class="hs " data-act="select" data-id="select" aria-label="Select Folder" style="left:63.38%;top:87.96%;width:18.39%;height:8.33%"></button>
+                <button type="button" class="hs " data-act="dismiss" aria-label="Cancel" style="left:82.92%;top:87.96%;width:14.45%;height:8.33%"></button>
+              </div>
+
+              <div class="ui-dlg dlg-details" role="dialog" aria-label="Capture details">
+                <img src="assets/ui-intro/dlg-details.jpg" alt="Capture details dialog" draggable="false">
+                <button type="button" class="hs " data-act="ok" data-id="ok" aria-label="OK" style="left:83.70%;top:82.98%;width:11.30%;height:9.93%"></button>
+                <button type="button" class="hs " data-act="dismiss" aria-label="Cancel" style="left:66.52%;top:82.98%;width:14.57%;height:9.93%"></button>
+                <button type="button" class="hs " data-act="dismiss" aria-label="Close" style="left:90.87%;top:3.55%;width:6.09%;height:9.93%"></button>
+              </div>
+
+              <div class="ui-dlg dlg-editor" role="dialog" aria-label="Reconstruct layout editor">
+                <img src="assets/ui-intro/editor.jpg" alt="Panorama layout editor" draggable="false">
+                <img class="ed-aligned" src="assets/ui-intro/editor-aligned.jpg" alt="" aria-hidden="true" draggable="false">
+                <button type="button" class="hs" data-act="field" data-tt-title="Auto Detect" data-tt="Finds the room corners for you." aria-label="Auto Detect" style="left:54.3%;top:91.5%;width:4.9%;height:3.0%"></button>
+                <button type="button" class="hs" data-act="level" data-id="level" data-tt-title="Click-to-level" data-tt="Click the TOP, then the BOTTOM, of something that should be vertical, such as a door edge or a wall corner. The panorama is rotated so that edge stands straight. One edge fixes the lean you can see across it; pick a second edge on a different wall to settle both roll and tilt. Esc cancels." aria-label="Click-to-level" style="left:60.2%;top:91.2%;width:2.5%;height:3.6%"></button>
+                <button type="button" class="hs" data-act="field" data-tt-title="Vertical guides" data-tt="Overlay vertical lines every 15° plus a plumb line under the cursor. In a level panorama every vertical edge in the room runs exactly along them, so any lean is easy to see." aria-label="Vertical guides" style="left:63.1%;top:91.2%;width:2.4%;height:3.6%"></button>
+                <button type="button" class="hs" data-act="field" data-tt-title="Horizon line" data-tt="Show or hide the red horizon line (camera eye level). With it on, check that things at camera height on the far walls sit on the line all the way round. If they wander up and down, the panorama is tilted." aria-label="Horizon line" style="left:66.0%;top:91.2%;width:2.4%;height:3.6%"></button>
+                <button type="button" class="hs" data-act="field" data-tt-title="Align" data-tt="Automatically levels this panorama by fixing its roll and tilt. The result shows in the Roll / Tilt readout at the bottom right." aria-label="Align" style="left:84.9%;top:91.3%;width:3.7%;height:3.3%"></button>
+                <button type="button" class="hs" data-act="field" data-tt-title="Roll" data-tt="Rotate the panorama clockwise or counter-clockwise to correct a sideways lean. Use it with the vertical guides." aria-label="Roll" style="left:92.3%;top:91.2%;width:1.6%;height:3.6%"></button>
+                <button type="button" class="hs" data-act="field" data-tt-title="Tilt" data-tt="Tilt the panorama up or down to correct a forward or backward lean. Use it with the horizon line." aria-label="Tilt" style="left:94.3%;top:91.2%;width:1.6%;height:3.6%"></button>
+                <button type="button" class="hs" data-act="build" data-tt-title="Build" data-tt="Create the 3D room from this layout." data-id="build" aria-label="Build the room in 3D" style="left:96.23%;top:91.2%;width:2.47%;height:3.56%"></button>
+                <button type="button" class="hs" data-act="dismiss" aria-label="Close editor" style="left:97.0%;top:0.8%;width:2.4%;height:3.2%"></button>
+              </div>
+
+              <div class="ui-tip" id="uiTip" role="status"></div>
+              <div class="ui-tt" id="uiTT" role="tooltip"></div>
+            </div>
+          </div>
+        </div>
+        <div class="ui-bar">
+          <p class="ui-cap" id="uiCap" aria-live="polite"></p>
+          <div class="ui-btns">
+            <button type="button" class="ui-btn" id="uiSkip">Skip intro</button>
+            <button type="button" class="ui-btn" id="uiReplay" hidden>&#8635; Replay</button>
+          </div>
+        </div>
+      </div>
+    </section>
